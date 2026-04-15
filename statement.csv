@@ -1,0 +1,8 @@
+Date,Transaction Details,Amount (KES),Balance (KES)
+01/01/2026,Deposit,5000,5000
+02/01/2026,Send Money,-1200,3800
+05/01/2026,Buy Airtime,-200,3600
+10/01/2026,Receive Money,2000,5600
+15/01/2026,Pay Bill,-1500,4100
+20/01/2026,Withdraw Cash,-2000,2100
+25/01/2026,Receive Money,3000,5100
