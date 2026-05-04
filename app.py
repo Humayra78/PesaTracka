@@ -4,9 +4,11 @@ from predictor import Predictor
 
 app = Flask(__name__)
 
-@app.route('/api/dashboard', methods=['GET'])
+@app.route('/')
 def home():
     return render_template('index.html')
+
+@app.route('/api/dashboard', methods=['GET'])
 def get_dashboard_data():
     try:
         # 1. Clean the data
