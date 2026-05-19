@@ -5,23 +5,31 @@ class DataCleaner:
         self.file_path = file_path
 
     def clean_data(self):
-        # 1. Load the data
-        df = pd.read_csv(self.file_path)
+        # 1. Load the data, skipping the first 4 rows of bank metadata
+        df = pd.read_csv(self.file_path, skiprows=4)
 
-        # 2. Convert Date to a format Python understands
-        # We use dayfirst=True because your CSV is DD/MM/YYYY
-        df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
+        # 2. Rename columns to match what the rest of the app expects
+        df = df.rename(columns={
+            'TRANSACTION DATE': 'Date',
+            'TRANS AMOUNT': 'Amount (KES)',
+            'PAYER NAME': 'Transaction Details'
+        })
+
+        # 3. Strip any accidental whitespace from column names
+        df.columns = [c.strip() for c in df.columns] 
         
-        # 3. Filter for 'Earnings' only
-        # In your file, deposits/received money are positive numbers.
+        # 4. Convert Date to a format Python understands (YYYY-MM-DD)
+        df['Date'] = pd.to_datetime(df['Date'])
+        
+        # 5. Filter for collections/earnings only (positive amounts)
         earnings_df = df[df['Amount (KES)'] > 0].copy()
         
-        # 4. Sort by date just in case the statement is out of order
+        # 6. Sort by date chronologically
         earnings_df = earnings_df.sort_values(by='Date')
         
         return earnings_df
 
-# Let's test it and calculate your total income
+# Test engine execution
 if __name__ == "__main__":
     cleaner = DataCleaner('statement.csv')
     data = cleaner.clean_data()
