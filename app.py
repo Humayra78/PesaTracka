@@ -19,7 +19,9 @@ def login_required(f):
 @app.route('/')
 @login_required
 def home():
-    return render_template('index.html', user_name=session.get('user_name'))
+    # Fetch the name stored during login, defaulting to "User" if it's missing
+    first_name = session.get('user_name', 'User')
+    return render_template('index.html', name=first_name)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
@@ -27,6 +29,14 @@ def login_page():
         data = request.form
         result = AuthenticationHandler.login_user(data['email'], data['password'])
         if result['status'] == 'success':
+            # After a clean validation check, grab user details to show the first name
+            from firebase_admin import auth
+            user = auth.get_user_by_email(data['email'])
+            
+            # Extract just the first word from full name string
+            first_name = user.display_name.split()[0] if user.display_name else "User"
+            session['user_name'] = first_name
+            
             return redirect(url_for('home'))
         return render_template('auth.html', error=result['message'], mode='login')
     return render_template('auth.html', mode='login')
@@ -39,10 +49,12 @@ def signup_page():
             email=data['email'],
             password=data['password'],
             phone_number=data['phone'],
-            display_name=data['name']
+            business_name=data['business_name'],
+            first_name=data['first_name'],
+            last_name=data['last_name']
         )
         if result['status'] == 'success':
-            return redirect(url_for('login_page', msg="Account created. Check email for verification link."))
+            return redirect(url_for('login_page', msg="Account created successfully. Please log in."))
         return render_template('auth.html', error=result['message'], mode='signup')
     return render_template('auth.html', mode='signup')
 

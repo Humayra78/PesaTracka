@@ -5,64 +5,226 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PesaTracka | Secure Access</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f4f7f6; font-family: 'Inter', sans-serif; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .auth-card { background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 25px rgba(0,0,0,0.06); width: 100%; max-width: 450px; }
-        .btn-primary { background-color: #3498db; border: none; border-radius: 8px; padding: 12px; }
-        .btn-primary:hover { background-color: #2980b9; }
-        .form-control { border-radius: 8px; padding: 12px; }
+        :root { 
+            --brand-green: #2d7a44; 
+            --bg-light: #f4f7f6; 
+        }
+        
+        body { 
+            background-color: var(--bg-light); 
+            font-family: 'Inter', sans-serif; 
+            height: 90vh;
+            margin: 0;
+            display: flex;
+            align-items: center; 
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        /* Master Container Frame with explicit rounded corners */
+        .split-container {
+            display: flex;
+            width: 100%;
+            max-width: 1000px;
+            height: px;
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+        }
+        
+        /* Left Panel*/
+        .brand-panel {
+            flex: 1.2;
+            background-color: var(--brand-green);
+            color: white;
+            padding: 0px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Centers vertically */
+            align-items: center;     /* Centers horizontally */
+            text-align: left;      
+            position: relative;
+        }
+        
+        /* Subtle architectural background accent circle */
+        .brand-panel::before {
+            content: "";
+            position: absolute;
+            bottom: -50px;
+            right: -50px;
+            width: 250px;
+            height: 250px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        
+        .brand-subtitle {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1.05rem;
+            line-height: 1.6;
+            margin-top: 20px;
+            max-width: 400px; /* Prevents text lines from getting uncomfortably wide */
+        }
+        
+        /* Right Panel: Clean form layout with vertical spacing */
+        .form-panel {
+            flex: 1;
+            padding: 60px 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            overflow-y: auto;
+        }
+        
+        /* Increased margin on form groups for a spacious, high-end feel */
+        .form-group-spaced {
+            margin-bottom: 10px; 
+        }
+        
+        .form-control { 
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px; 
+            padding: 14px 16px; 
+            font-size: 0.95rem;
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .form-control:focus {
+            border-color: var(--brand-green);
+            box-shadow: 0 0 0 3px rgba(45, 122, 68, 0.15);
+            outline: none;
+        }
+        
+        .btn-primary { 
+            background-color: var(--brand-green); 
+            border: none; 
+            border-radius: 12px; 
+            padding: 15px; 
+            font-weight: 600;
+            font-size: 1rem;
+            margin-top: 10px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .btn-primary:hover { 
+            background-color: #215931; 
+            color: rgba(255, 255, 255, 0.85) 
+        }
+        
+        .alert {
+            border-radius: 12px;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+        
+        .custom-badge {
+            background-color: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
     </style>
 </head>
 <body>
 
-    <div class="auth-card">
-        <div class="text-center mb-4">
-            <h2 class="fw-bold text-dark">PesaTracka</h2>
-            <p class="text-muted">{{ 'Create your business account' if mode == 'signup' else 'Sign in to your dashboard' }}</p>
+    <div class="split-container">
+        
+        <div class="brand-panel">
+            <span class="badge custom-badge px-3 py-2 rounded-pill mb-3">SME Analytics Platform</span>
+            <h1 class="fw-bold display-6 m-0" style="letter-spacing: -1px;">Welcome to PesaTracka</h1>
+            <p class="brand-subtitle">Transforming raw financial transaction logs into predictive intelligence. Monitor historical patterns, trends, and projected revenue through a single automated dashboard pipeline.</p>
         </div>
 
-        {% if error %}
-            <div class="alert alert-danger font-monospace small" role="alert">{{ error }}</div>
-        {% endif %}
-        {% if request.args.get('msg') %}
-            <div class="alert alert-success small" role="alert">{{ request.args.get('msg') }}</div>
-        {% endif %}
+        <div class="form-panel">
+            <div class="mb-3">
+                <h3 class="fw-bold text-dark mb-1">{{ 'Create Business Account' if mode == 'signup' else 'Account Access Portal' }}</h3>
+                <p class="text-muted small">{{ 'Provide corporate credentials to activate system processing modules.' if mode == 'signup' else 'Secure authentication gateway protocol.' }}</p>
+            </div>
 
-        <form action="{{ url_for('signup_page' if mode == 'signup' else 'login_page') }}" method="POST">
-            {% if mode == 'signup' %}
-            <div class="mb-3">
-                <label class="form-label">Business / Owner Name</label>
-                <input type="text" name="name" class="form-control" placeholder="e.g. Star Optics Ltd" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Kenyan Phone Number</label>
-                <input type="tel" name="phone" class="form-control" placeholder="e.g. 0712345678 or +2547..." required>
-                <div class="form-text">Will be verified via verification gateway.</div>
-            </div>
+            {% if error %}
+                <div class="alert alert-danger font-monospace small" role="alert">⚠️ {{ error }}</div>
             {% endif %}
+            {% if request.args.get('msg') %}
+                <div class="alert alert-success small" role="alert">✅ {{ request.args.get('msg') }}</div>
+            {% endif %}
+            
 
-            <div class="mb-3">
-                <label class="form-label">Email Address</label>
-                <input type="email" name="email" class="form-control" placeholder="name@company.com" required>
-            </div>
-            <div class="mb-4">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" placeholder="••••••••" required>
-            </div>
-
-            <button type="submit" class="btn btn-primary w-100 fw-bold mb-3">
-                {{ 'Register Account' if mode == 'signup' else 'Sign In' }}
-            </button>
-
-            <div class="text-center">
+            <form action="{{ url_for('signup_page' if mode == 'signup' else 'login_page') }}" method="POST" onsubmit="return validateForm()">
                 {% if mode == 'signup' %}
-                    <span class="text-muted">Already have an account?</span> <a href="{{ url_for('login_page') }}" class="text-decoration-none">Login</a>
-                {% else %}
-                    <span class="text-muted">New to PesaTracka?</span> <a href="{{ url_for('signup_page') }}" class="text-decoration-none">Create account</a>
+                <div class="form-group-spaced">
+                    <label class="form-label small fw-medium text-secondary">Business Entity Name</label>
+                    <input type="text" name="business_name" class="form-control" placeholder="e.g., Star Optics Limited" required>
+                </div>
+                
+                <div class="row g-2 form-group-spaced">
+                    <div class="col-6">
+                        <label class="form-label small fw-medium text-secondary">First Name</label>
+                        <input type="text" name="first_name" class="form-control" placeholder="Jane" required>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-medium text-secondary">Last Name</label>
+                        <input type="text" name="last_name" class="form-control" placeholder="Wanjiku" required>
+                    </div>
+                </div>
+
+                <div class="form-group-spaced">
+                    <label class="form-label small fw-medium text-secondary">Kenyan Mobile Number</label>
+                    <input type="tel" name="phone" class="form-control" placeholder="e.g., 0712345678" required>
+                </div>
                 {% endif %}
-            </div>
-        </form>
+
+                <div class="form-group-spaced">
+                    <label class="form-label small fw-medium text-secondary">Email Address</label>
+                    <input type="email" name="email" class="form-control" placeholder="name@company.com" required>
+                </div>
+                
+                <div class="form-group-spaced">
+                    <label class="form-label small fw-medium text-secondary">Security Password</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+
+                {% if mode == 'signup' %}
+                <div class="form-group-spaced">
+                    <label class="form-label small fw-medium text-secondary">Confirm Password</label>
+                    <input type="password" id="confirm_password" class="form-control" placeholder="••••••••" required>
+                </div>
+                {% endif %}
+
+                <button type="submit" class="btn btn-primary w-100 mb-2 shadow-sm">
+                    {{ 'Sign Up' if mode == 'signup' else 'Login' }}
+                </button>
+
+                <div class="text-center mt-2">
+                    {% if mode == 'signup' %}
+                        <span class="text-muted small">Existing user profile?</span> <a href="{{ url_for('login_page') }}" class="text-decoration-none small fw-medium" style="color: var(--brand-green);">Log In</a>
+                    {% else %}
+                        <span class="text-muted small">Create new account: </span> <a href="{{ url_for('signup_page') }}" class="text-decoration-none small fw-medium" style="color: var(--brand-green);">Sign Up</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
     </div>
 
+    <script>
+        function validateForm() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password');
+            const alertBox = document.getElementById('password-alert');
+            
+            // Only perform matching on signup page
+            if (confirmPassword) {
+                if (password !== confirmPassword.value) {
+                    alertBox.classList.remove('d-none');
+                    return false; // Prevent form submit
+                }
+            }
+            return true; // Proceed with submit
+        }
+    </script>
 </body>
 </html>

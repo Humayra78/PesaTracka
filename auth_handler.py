@@ -1,23 +1,23 @@
 import re
 import firebase_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials, auth, firestore
 from flask import session
 
 # Initialize Firebase Admin SDK
-# Note: You will download your serviceAccountKey.json from your Firebase Console
 try:
     cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred)
 except ValueError:
     pass # Already initialized
 
+# Create a Firestore Client instance
+db = firestore.client()
+
 class AuthenticationHandler:
     @staticmethod
     def validate_kenyan_phone(phone_number):
-        """Validates and standardizes Kenyan phone numbers to E.164 format (+254...)"""
         # Remove spaces or hyphens
         phone = re.sub(r'[\s\-]', '', phone_number)
-        
         # Match layouts: +2547..., +2541..., 07..., 01..., 7..., 1...
         match = re.match(r'^(?:\+254|0)?([71]\d{8})$', phone)
         if match:
@@ -25,22 +25,32 @@ class AuthenticationHandler:
         return None
 
     @classmethod
-    def register_user(cls, email, password, phone_number, display_name):
+    def register_user(cls, email, password, phone_number, business_name, first_name, last_name):
         standard_phone = cls.validate_kenyan_phone(phone_number)
         if not standard_phone:
             return {"status": "error", "message": "Invalid Kenyan phone number format."}
         
         try:
+            # 1. Store full name under the primary authentication display profile
+            full_name = f"{first_name} {last_name}"
+            
             user = auth.create_user(
                 email=email,
                 password=password,
                 phone_number=standard_phone,
-                display_name=display_name
+                display_name=full_name
             )
-            # Generate email verification link
-            verification_link = auth.generate_email_verification_link(email)
-            # In production, you would use an email library to send this link to the user
-            print(f"Verification link generated for dev: {verification_link}")
+            
+            # 2. Write highly structured details to Firestore database
+            user_data = {
+                "business_name": business_name,
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "phone": standard_phone,
+                "created_at": firestore.SERVER_TIMESTAMP
+            }
+            db.collection("users").document(user.uid).set(user_data)
             
             return {"status": "success", "uid": user.uid}
         except Exception as e:
