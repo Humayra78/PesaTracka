@@ -1,3 +1,4 @@
+import os
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session
 from functools import wraps
 from cleaner import DataCleaner
@@ -63,26 +64,78 @@ def logout():
     AuthenticationHandler.logout_user()
     return redirect(url_for('login_page'))
 
-# Protect your data API
-@app.route('/api/dashboard', methods=['GET'])
+
+# --- NEW DYNAMIC EXTRACT-TRANSFORM-LOAD (ETL) UPLOAD ROUTE ---
+# This completely replaces the old hardcoded /api/dashboard endpoint
+@app.route('/api/upload', methods=['POST'])
 @login_required
-def get_dashboard_data():
-    try:
-        cleaner = DataCleaner('statement.csv')
-        df = cleaner.clean_data()
-        total_earnings = float(df['Amount (KES)'].sum())
-        transaction_count = len(df)
-        model_engine = Predictor()
-        prediction = float(model_engine.forecast_next_period(df))
+def upload_statement():
+    if 'file' not in request.files:
+        return jsonify({"status": "error", "message": "No file chunk found in payload."}), 400
         
-        return jsonify({
-            "status": "success",
-            "total_earnings": total_earnings,
-            "transaction_count": transaction_count,
-            "next_month_forecast": round(prediction, 2)
-        })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No file selected."}), 400
+
+    if file and file.filename.endswith('.csv'):
+        temp_path = os.path.join(os.getcwd(), "temp_upload.csv")
+        try:
+            # Save the uploaded file temporarily to the server workspace
+            file.save(temp_path)
+            
+            # 1. EXTRACT & TRANSFORM: Pipe file into your DataCleaner
+            cleaner = DataCleaner(temp_path)
+            df = cleaner.clean_data()
+            
+            if df.empty:
+                return jsonify({"status": "error", "message": "No valid collection earnings records found in this statement layout."}), 400
+                
+            # 2. ANALYTICS: Calculate required metric boundaries
+            total_earnings = float(df['Amount (KES)'].sum())
+            transaction_count = len(df)
+            
+            # Calculate dynamic daily averages based on unique dates in the statement
+            unique_days = df['Date'].dt.date.nunique()
+            avg_daily_income = float(total_earnings / unique_days) if unique_days > 0 else 0.0
+            
+            # Identify the peak transaction day name
+            df['DayName'] = df['Date'].dt.day_name()
+            peak_day = str(df.groupby('DayName')['Amount (KES)'].sum().idxmax())
+
+            # 3. PREDICT: Process time-series forecasting calculations
+            model_engine = Predictor()
+            prediction = float(model_engine.forecast_next_period(df))
+            
+            # 4. LOAD VISUALIZATION: Format weekday distributions for Chart.js
+            weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            day_grouping = df.groupby('DayName')['Amount (KES)'].sum().reindex(weekday_order, fill_value=0)
+            
+            chart_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+            chart_data = [float(val) for val in day_grouping.values]
+
+            # Clean up the temporary workspace file immediately
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+
+            # Return structural payload response directly back to the frontend dashboard script
+            return jsonify({
+                "status": "success",
+                "total_earnings": total_earnings,
+                "transaction_count": transaction_count,
+                "avg_daily": round(avg_daily_income, 2),
+                "peak_day": peak_day,
+                "next_month_forecast": round(prediction, 2),
+                "chart_labels": chart_labels,
+                "chart_data": chart_data
+            })
+            
+        except Exception as e:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+            return jsonify({"status": "error", "message": f"Processing runtime failure: {str(e)}"}), 500
+
+    return jsonify({"status": "error", "message": "File format type must be extension .csv"}), 400
+
 
 if __name__ == '__main__':
     app.run(debug=True)
