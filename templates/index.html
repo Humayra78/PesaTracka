@@ -107,10 +107,50 @@
             border-bottom: 0;
             border-left: 0.3em solid transparent;
         }
+
+        /* ===== Chart dropdowns ===== */
+        .chart-dropdown .btn {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 30px;
+            transition: all 0.2s;
+        }
+        .chart-dropdown .btn:hover {
+            border-color: var(--primary-green);
+            background: var(--dropzone-hover-bg);
+        }
+        .chart-dropdown .dropdown-menu {
+            min-width: 120px;
+            padding: 6px 0;
+        }
+        .chart-dropdown .dropdown-item {
+            font-size: 0.85rem;
+            padding: 6px 18px;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        .chart-dropdown .dropdown-item:hover {
+            background: var(--dropzone-hover-bg);
+            
+        }
+        .chart-dropdown .dropdown-item.active {
+            background: var(--primary-green);
+            color: white;
+        }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 768px) {
+            .sidebar { width: 160px; padding: 15px 8px; }
+            .main-content { padding: 20px; }
+        }
     </style>
 </head>
 <body>
 
+    <!-- ===== SIDEBAR ===== -->
     <div class="sidebar d-flex flex-column">
         <div>
             <div class="logo-area">📈 PesaTracka</div>
@@ -187,17 +227,44 @@
             </div>
         </div>
 
-        <!-- ===== CHARTS ===== -->
+        <!-- ===== CHARTS WITH DROPDOWNS ===== -->
         <div class="row g-4">
+            <!-- Line Chart: Revenue Velocity -->
             <div class="col-md-6">
                 <div class="chart-box">
-                    <h6 class="fw-bold mb-4 text-secondary">Weekly Revenue Velocity Curve</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h6 class="fw-bold mb-0" id="lineChartTitle">Weekly Revenue Velocity Curve</h6>
+                        <div class="dropdown chart-dropdown">
+                            <button class="btn dropdown-toggle" type="button" id="linePeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span id="linePeriodLabel">Weekly</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="linePeriodDropdown">
+                                <li><a class="dropdown-item active" data-period="weekly" data-chart="line">Weekly</a></li>
+                                <li><a class="dropdown-item" data-period="monthly" data-chart="line">Monthly</a></li>
+                                <li><a class="dropdown-item" data-period="yearly" data-chart="line">Yearly</a></li>
+                            </ul>
+                        </div>
+                    </div>
                     <canvas id="lineChart"></canvas>
                 </div>
             </div>
+
+            <!-- Bar Chart: Distribution -->
             <div class="col-md-6">
                 <div class="chart-box">
-                    <h6 class="fw-bold mb-4 text-secondary">Distribution Weights per Weekday</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h6 class="fw-bold mb-0" id="barChartTitle">Distribution Weights per Weekday</h6>
+                        <div class="dropdown chart-dropdown">
+                            <button class="btn dropdown-toggle" type="button" id="barPeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <span id="barPeriodLabel">Weekly</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="barPeriodDropdown">
+                                <li><a class="dropdown-item active" data-period="weekly" data-chart="bar">Weekly</a></li>
+                                <li><a class="dropdown-item" data-period="monthly" data-chart="bar">Monthly</a></li>
+                                <li><a class="dropdown-item" data-period="yearly" data-chart="bar">Yearly</a></li>
+                            </ul>
+                        </div>
+                    </div>
                     <canvas id="barChart"></canvas>
                 </div>
             </div>
@@ -237,18 +304,25 @@
         })();
 
         // ============================================================
-        // 2. CHART INSTANCES
+        // 2. CHART INSTANCES & STATE
         // ============================================================
         let lineChartInstance = null;
         let barChartInstance = null;
 
+        // Current period for each chart
+        let currentLinePeriod = 'weekly';
+        let currentBarPeriod = 'weekly';
+
+        // Store the most recently uploaded chart data
+        let lastChartData = null;
+
+        // ============================================================
+        // 3. CHART INITIALIZATION
+        // ============================================================
         function initEmptyCharts() {
-            const chartOptions = {
+            const opts = {
                 plugins: { legend: { display: false } },
-                scales: {
-                    y: { display: false },
-                    x: { grid: { display: false } }
-                }
+                scales: { y: { display: false }, x: { grid: { display: false } } }
             };
 
             const lineCtx = document.getElementById('lineChart').getContext('2d');
@@ -256,9 +330,9 @@
                 type: 'line',
                 data: {
                     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{ data: [0, 0, 0, 0, 0, 0, 0], borderColor: '#2d7a44', borderWidth: 2, tension: 0.4 }]
+                    datasets: [{ data: [0,0,0,0,0,0,0], borderColor: '#2d7a44', borderWidth: 2, tension: 0.4 }]
                 },
-                options: chartOptions
+                options: opts
             });
 
             const barCtx = document.getElementById('barChart').getContext('2d');
@@ -266,14 +340,109 @@
                 type: 'bar',
                 data: {
                     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                    datasets: [{ data: [0, 0, 0, 0, 0, 0, 0], backgroundColor: '#cbd5e1', borderRadius: 6 }]
+                    datasets: [{ data: [0,0,0,0,0,0,0], backgroundColor: '#cbd5e1', borderRadius: 6 }]
                 },
-                options: chartOptions
+                options: opts
             });
         }
 
         // ============================================================
-        // 3. FILE UPLOAD HANDLER
+        // 4. UPDATE CHARTS WITH NEW DATA (from backend)
+        // ============================================================
+        function updateCharts(data) {
+            lastChartData = data;
+            // Update line chart with current period
+            updateLineChart(data, currentLinePeriod);
+            // Update bar chart with current period
+            updateBarChart(data, currentBarPeriod);
+        }
+
+        function updateLineChart(data, period) {
+            if (!lineChartInstance || !data) return;
+            const labels = data.labels || [];
+            const values = data.values || [];
+
+            // For weekly, use 7 days; for monthly/yearly, use aggregated data
+            let displayLabels = labels;
+            let displayValues = values;
+
+            if (period === 'weekly') {
+                displayLabels = data.weekly_labels || labels;
+                displayValues = data.weekly_values || values;
+            } else if (period === 'monthly') {
+                displayLabels = data.monthly_labels || ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                displayValues = data.monthly_values || values;
+            } else if (period === 'yearly') {
+                displayLabels = data.yearly_labels || labels;
+                displayValues = data.yearly_values || values;
+            }
+
+            lineChartInstance.data.labels = displayLabels;
+            lineChartInstance.data.datasets[0].data = displayValues;
+            lineChartInstance.update();
+        }
+
+        function updateBarChart(data, period) {
+            if (!barChartInstance || !data) return;
+
+            let displayLabels = data.labels || [];
+            let displayValues = data.values || [];
+
+            if (period === 'weekly') {
+                displayLabels = data.weekly_labels || displayLabels;
+                displayValues = data.weekly_values || displayValues;
+            } else if (period === 'monthly') {
+                displayLabels = data.monthly_labels || ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                displayValues = data.monthly_values || displayValues;
+            } else if (period === 'yearly') {
+                // REMOVED HARDCODED 2019-2024 FALLBACK
+                displayLabels = data.yearly_labels || displayLabels;
+                displayValues = data.yearly_values || displayValues;
+            }
+
+            barChartInstance.data.labels = displayLabels;
+            barChartInstance.data.datasets[0].data = displayValues;
+            
+            const maxVal = Math.max(...displayValues, 0);
+            barChartInstance.data.datasets[0].backgroundColor = (ctx) => {
+                const val = ctx.raw || 0;
+                return val === maxVal && maxVal > 0 ? '#2d7a44' : '#cbd5e1';
+            };
+            barChartInstance.update();
+        }
+
+        // ============================================================
+        // 5. FETCH CHART DATA FROM BACKEND
+        // ============================================================
+        function fetchChartData(period, chartType) {
+            // If we have cached data, just update the chart
+            if (lastChartData) {
+                if (chartType === 'line') {
+                    updateLineChart(lastChartData, period);
+                } else {
+                    updateBarChart(lastChartData, period);
+                }
+                return;
+            }
+
+            // Otherwise, fetch from backend
+            fetch('/api/chart_data?period=' + period)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        lastChartData = data;
+                        if (chartType === 'line') {
+                            updateLineChart(data, period);
+                        } else {
+                            updateBarChart(data, period);
+                        }
+                    }
+                })
+                .catch(err => console.error('Error fetching chart data:', err));
+        }
+
+        // ============================================================
+        // 6. FILE UPLOAD HANDLER (enhanced)
         // ============================================================
         function processFileUpload(file) {
             if (!file) return;
@@ -299,18 +468,28 @@
                         const now = new Date();
                         document.getElementById('upload-timestamp').innerText = "Last statement uploaded: " + now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-                        lineChartInstance.data.datasets[0].data = data.chart_data;
-                        lineChartInstance.data.datasets[0].borderColor = '#2d7a44';
-                        lineChartInstance.update();
+                        // Store chart data with all period aggregations
+                        lastChartData = {
+                            labels: data.chart_labels || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                            values: data.chart_data || [0,0,0,0,0,0,0],
+                            weekly_labels: data.chart_labels || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                            weekly_values: data.chart_data || [0,0,0,0,0,0,0],
+                            monthly_labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+                            monthly_values: data.monthly_data || [0,0,0,0,0,0,0,0,0,0,0,0],
+                            // MAP BACKEND LABELS DIRECTLY
+                            yearly_labels: data.yearly_labels || ['2026'],
+                            yearly_values: data.yearly_data || [0]
+                        };
 
-                        barChartInstance.data.datasets[0].data = data.chart_data;
-                        barChartInstance.data.datasets[0].backgroundColor = (ctx) => ctx.raw === Math.max(...data.chart_data) ? '#2d7a44' : '#cbd5e1';
-                        barChartInstance.update();
+                        // Update charts with current period
+                        updateLineChart(lastChartData, currentLinePeriod);
+                        updateBarChart(lastChartData, currentBarPeriod);
 
+                        // Close dropdown
                         setTimeout(() => {
-                            const dropdownElement = document.getElementById('uploadDropdownButton');
-                            const dropdownInstance = bootstrap.Dropdown.getInstance(dropdownElement);
-                            if (dropdownInstance) dropdownInstance.hide();
+                            const dropdownEl = document.getElementById('uploadDropdownButton');
+                            const inst = bootstrap.Dropdown.getInstance(dropdownEl);
+                            if (inst) inst.hide();
                             statusBox.classList.add('d-none');
                         }, 800);
 
@@ -325,7 +504,54 @@
         }
 
         // ============================================================
-        // 4. INIT
+        // 7. DROPDOWN EVENT LISTENERS
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Line chart period dropdown
+            document.querySelectorAll('#linePeriodDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const period = this.dataset.period;
+                    currentLinePeriod = period;
+                    document.getElementById('linePeriodLabel').textContent = this.textContent;
+
+                    // Update title
+                    const titles = { weekly: 'Weekly Revenue Velocity Curve', monthly: 'Monthly Revenue Velocity Curve', yearly: 'Yearly Revenue Velocity Curve' };
+                    document.getElementById('lineChartTitle').textContent = titles[period] || 'Revenue Velocity Curve';
+
+                    // Update active state
+                    this.closest('.dropdown-menu').querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+                    this.classList.add('active');
+
+                    if (lastChartData) {
+                        updateLineChart(lastChartData, period);
+                    }
+                });
+            });
+
+            // Bar chart period dropdown
+            document.querySelectorAll('#barPeriodDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const period = this.dataset.period;
+                    currentBarPeriod = period;
+                    document.getElementById('barPeriodLabel').textContent = this.textContent;
+
+                    const titles = { weekly: 'Distribution Weights per Weekday', monthly: 'Distribution Weights per Month', yearly: 'Distribution Weights per Year' };
+                    document.getElementById('barChartTitle').textContent = titles[period] || 'Distribution Weights';
+
+                    this.closest('.dropdown-menu').querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+                    this.classList.add('active');
+
+                    if (lastChartData) {
+                        updateBarChart(lastChartData, period);
+                    }
+                });
+            });
+        });
+
+        // ============================================================
+        // 8. INIT
         // ============================================================
         window.onload = initEmptyCharts;
     </script>

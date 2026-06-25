@@ -66,7 +66,6 @@ def logout():
 
 
 # --- NEW DYNAMIC EXTRACT-TRANSFORM-LOAD (ETL) UPLOAD ROUTE ---
-# This completely replaces the old hardcoded /api/dashboard endpoint
 @app.route('/api/upload', methods=['POST'])
 @login_required
 def upload_statement():
@@ -106,18 +105,31 @@ def upload_statement():
             model_engine = Predictor()
             prediction = float(model_engine.forecast_next_period(df))
             
-            # 4. LOAD VISUALIZATION: Format weekday distributions for Chart.js
+            # 4. LOAD VISUALIZATION AGGREGATIONS
+            
+            # A. Weekly Distribution (Default / Weekday View)
             weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
             day_grouping = df.groupby('DayName')['Amount (KES)'].sum().reindex(weekday_order, fill_value=0)
-            
             chart_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
             chart_data = [float(val) for val in day_grouping.values]
+
+            # B. Monthly Distribution (Jan - Dec)
+            df['MonthNum'] = df['Date'].dt.month
+            month_order = list(range(1, 13))
+            month_grouping = df.groupby('MonthNum')['Amount (KES)'].sum().reindex(month_order, fill_value=0)
+            monthly_data = [float(val) for val in month_grouping.values]
+
+            # C. Yearly Distribution (Dynamically derived from file timeframe)
+            year_grouping = df.groupby(df['Date'].dt.year)['Amount (KES)'].sum()
+            # Explicitly capture sorted labels and values to match Chart.js parameters
+            yearly_labels = [str(y) for y in sorted(year_grouping.index)]
+            yearly_data = [float(year_grouping[int(y)]) for y in yearly_labels]
 
             # Clean up the temporary workspace file immediately
             if os.path.exists(temp_path):
                 os.remove(temp_path)
 
-            # Return structural payload response directly back to the frontend dashboard script
+            # Return structural payload response matching index.html script hooks
             return jsonify({
                 "status": "success",
                 "total_earnings": total_earnings,
@@ -126,7 +138,10 @@ def upload_statement():
                 "peak_day": peak_day,
                 "next_month_forecast": round(prediction, 2),
                 "chart_labels": chart_labels,
-                "chart_data": chart_data
+                "chart_data": chart_data,
+                "monthly_data": monthly_data,
+                "yearly_labels": yearly_labels,
+                "yearly_data": yearly_data
             })
             
         except Exception as e:
