@@ -8,30 +8,32 @@ class DataCleaner:
         # 1. Load the data, skipping the first 4 rows of bank metadata
         df = pd.read_csv(self.file_path, skiprows=4)
 
-        # 2. Rename columns to match what the rest of the app expects
+        # 2. Strip any accidental whitespace from column headers
+        df.columns = [c.strip() for c in df.columns]
+
+        # 3. Rename columns to match what the rest of the application expects
         df = df.rename(columns={
             'TRANSACTION DATE': 'Date',
             'TRANS AMOUNT': 'Amount (KES)',
             'PAYER NAME': 'Transaction Details'
         })
 
-        # 3. Strip any accidental whitespace from column names
-        df.columns = [c.strip() for c in df.columns] 
+        # 4. Remove empty structural filler rows that contain no date or amount
+        df = df.dropna(subset=['Date', 'Amount (KES)'])
         
-        # 4. Convert Date to a format Python understands (YYYY-MM-DD)
-        df['Date'] = pd.to_datetime(df['Date'])
+        # 5. Tell the parser to expect mixed date formats, prioritizing day-first layouts
+        df['Date'] = pd.to_datetime(df['Date'], format='mixed', dayfirst=True)
         
-        # 5. Filter for collections/earnings only (positive amounts)
+        # 6. Filter for collections/earnings only (positive amounts)
         earnings_df = df[df['Amount (KES)'] > 0].copy()
         
-        # 6. Sort by date chronologically
+        # 7. Sort by date chronologically
         earnings_df = earnings_df.sort_values(by='Date')
         
         return earnings_df
 
-# Test engine execution
 if __name__ == "__main__":
-    cleaner = DataCleaner('statement.csv')
+    cleaner = DataCleaner('statement_extended.csv')
     data = cleaner.clean_data()
     
     total_income = data['Amount (KES)'].sum()

@@ -12,8 +12,8 @@ class Predictor:
         
         # 2. Check if the statement spans multiple distinct dates
         if len(daily_revenue) < 2:
-            # For small statement windows, fallback to a flat projection of the current sum
-            return float(daily_revenue['Amount (KES)'].sum())
+            # Fallback for a single day: extrapolate that daily value out to a 30-day month
+            return float(daily_revenue['Amount (KES)'].sum() * 30)
             
         # 3. Construct chronological variable spaces for standard linear prediction
         X = np.array(range(len(daily_revenue))).reshape(-1, 1)
@@ -22,8 +22,12 @@ class Predictor:
         # 4. Train the regression model pipeline
         self.model.fit(X, y)
         
-        # 5. Output the projected estimate vector for the following sequential day index
-        next_day_index = np.array([[len(daily_revenue)]])
-        prediction = self.model.predict(next_day_index)
+        # 5. Predict daily revenue trends for the next 30 sequential days
+        next_day_indexes = np.array(range(len(daily_revenue), len(daily_revenue) + 30)).reshape(-1, 1)
+        predicted_daily_values = self.model.predict(next_day_indexes)
         
-        return float(prediction[0])
+        # 6. Sum up all 30 predicted days to get the true total for next month
+        total_monthly_forecast = float(np.sum(predicted_daily_values))
+        
+        # Guard clause: ensure the model doesn't project a negative value during a downward trend
+        return max(0.0, total_monthly_forecast) 
