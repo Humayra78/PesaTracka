@@ -155,8 +155,8 @@
         <div>
             <div class="logo-area">📈 PesaTracka</div>
             <nav>
-                <a href="#" class="nav-link active">Dashboard 📊</a>
-                <a href="#" class="nav-link">History 📜</a>
+                <a href="#" class="nav-link active" id="nav-dashboard-link">Dashboard 📊</a>
+                <a href="#" class="nav-link" id="nav-history-link">History 📜</a>
             </nav>
         </div>
         <div class="mt-auto">
@@ -170,21 +170,20 @@
         <header class="d-flex justify-content-between align-items-center mb-3">
             <div>
                 <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Welcome, {{ name }}</h2>
-                <small class="text-muted" id="upload-timestamp">No statement processed yet</small>
+                <div class="d-flex flex-column gap-1">
+                    <small class="text-muted" id="upload-timestamp">No statement processed yet</small>
+                    <small class="fw-medium text-success d-none" id="statement-summary-badge" style="font-size: 0.8rem;"></small>
+                </div>
             </div>
 
             <div class="d-flex align-items-center gap-3">
-                <!-- Dark Mode Toggle Button -->
-                <button class="btn-dark-toggle" id="darkModeToggle" aria-label="Toggle dark mode">
-                    🌙
-                </button>
+                <button class="btn-dark-toggle" id="darkModeToggle" aria-label="Toggle dark mode">🌙</button>
 
                 <!-- Upload Dropdown -->
                 <div class="dropdown">
                     <button class="btn-upload dropdown-toggle" type="button" id="uploadDropdownButton" data-bs-toggle="dropdown" aria-expanded="false">
                         <span class="me-1">↑</span> Upload M-Pesa File
                     </button>
-
                     <div class="dropdown-menu dropdown-menu-end p-4 shadow-lg border-0" aria-labelledby="uploadDropdownButton" style="width: 340px; border-radius: 16px; min-width: 300px;">
                         <div class="dropzone-box py-4 px-2" onclick="document.getElementById('csvFileInput').click(); event.stopPropagation();">
                             <span style="font-size: 2rem; display:block;" class="mb-2">📁</span>
@@ -198,53 +197,89 @@
             </div>
         </header>
 
-        <!-- ===== FORECAST CARD ===== -->
-        <div class="forecast-card shadow-sm">
-            <span class="forecast-label">Next Month's Projected Earnings</span>
-            <div id="forecast" class="forecast-value">KSh 0.00</div>
-            <span class="growth-badge">📊 Deep Learning Linear Sequence Forecasting Engine</span>
-        </div>
+        <!-- ===== VIEWPORTS WRAPPER ===== -->
+        <div id="dashboard-view">
+            <!-- ===== FORECAST CARD ===== -->
+            <div class="forecast-card shadow-sm">
+                <span class="forecast-label">Next Month's Projected Earnings</span>
+                <div id="forecast" class="forecast-value">KSh 0.00</div>
+                <span class="growth-badge">📊 Deep Learning Linear Sequence Forecasting Engine</span>
+            </div>
 
-        <!-- ===== STATS ===== -->
-        <div class="row g-4 mb-3">
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <span class="stat-label">Total Volume Revenue</span>
-                    <div id="total-earnings" class="stat-value">KSh 0.00</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <span class="stat-label">Average Daily Income</span>
-                    <div id="avg-daily" class="stat-value">KSh 0.00</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="stat-card">
-                    <span class="stat-label">Top Business Day</span>
-                    <div id="peak-day" class="stat-value text-success">--</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ===== COMBINED CHART (Bar + Line) ===== -->
-        <div class="row g-4">
-            <div class="col-12">
-                <div class="chart-box">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h6 class="fw-bold mb-0" id="combinedChartTitle">Revenue Distribution & Velocity Curve</h6>
-                        <div class="dropdown chart-dropdown">
-                            <button class="btn dropdown-toggle" type="button" id="combinedPeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                <span id="combinedPeriodLabel">Weekly</span>
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="combinedPeriodDropdown">
-                                <li><a class="dropdown-item active" data-period="weekly" data-chart="combined">Weekly</a></li>
-                                <li><a class="dropdown-item" data-period="monthly" data-chart="combined">Monthly</a></li>
-                                <li><a class="dropdown-item" data-period="yearly" data-chart="combined">Yearly</a></li>
-                            </ul>
-                        </div>
+            <!-- ===== STATS ===== -->
+            <div class="row g-4 mb-3">
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <span class="stat-label">Total Volume Revenue</span>
+                        <div id="total-earnings" class="stat-value">KSh 0.00</div>
                     </div>
-                    <canvas id="combinedChart" style="max-height: 400px;"></canvas>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <span class="stat-label">Average Daily Income</span>
+                        <div id="avg-daily" class="stat-value">KSh 0.00</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <span class="stat-label">Top Business Day</span>
+                        <div id="peak-day" class="stat-value text-success">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== COMBINED CHART ===== -->
+            <div class="row g-4">
+                <div class="col-12">
+                    <div class="chart-box">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div class="d-flex align-items-center gap-3">
+                                <h6 class="fw-bold mb-0" id="combinedChartTitle">Revenue Distribution & Velocity Curve</h6>
+                                <div id="chartNavigationControls" class="d-flex align-items-center gap-2 bg-light px-2 py-1 rounded-pill border">
+                                    <button class="btn btn-sm p-0 border-0" id="prevPeriodBtn" style="width:24px; height:24px; font-size:0.8rem;">◀</button>
+                                    <span id="currentPeriodLabelRange" class="fw-semibold text-secondary small" style="min-width: 90px; text-align: center;">--</span>
+                                    <button class="btn btn-sm p-0 border-0" id="nextPeriodBtn" style="width:24px; height:24px; font-size:0.8rem;">▶</button>
+                                </div>
+                            </div>
+                            <div class="dropdown chart-dropdown">
+                                <button class="btn dropdown-toggle" type="button" id="combinedPeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <span id="combinedPeriodLabel">Weekly</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="combinedPeriodDropdown">
+                                    <li><a class="dropdown-item active" data-period="weekly">Weekly</a></li>
+                                    <li><a class="dropdown-item" data-period="monthly">Monthly</a></li>
+                                    <li><a class="dropdown-item" data-period="yearly">Yearly</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <canvas id="combinedChart" style="max-height: 400px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== NEW STATEMENT HISTORY VIEWPORT ===== -->
+        <div id="history-view" class="d-none animate-fade-in">
+            <div class="stat-card p-4">
+                <h4 class="fw-bold mb-3" style="color: var(--text-primary);">M-Pesa Statement Archive Log</h4>
+                <p class="text-secondary small mb-4">Select any previously processed statement to restore its analytic data engine configuration onto your active dashboard view.</p>
+                
+                <div class="table-responsive">
+                    <table class="table align-middle" style="color: var(--text-primary);">
+                        <thead class="table-light text-secondary small text-uppercase">
+                            <tr>
+                                <th>Statement CSV Title</th>
+                                <th>Date Processed</th>
+                                <th>Time Uploaded</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-table-body">
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-4">No tracking entries found in session cache log history.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -283,15 +318,15 @@
         })();
 
         // ============================================================
-        // 2. CHART INSTANCE & STATE
+        // 2. CHART INSTANCE & STATE MANAGEMENT
         // ============================================================
         let combinedChartInstance = null;
-
-        // Current period
         let currentCombinedPeriod = 'weekly';
-
-        // Store the most recently uploaded chart data
-        let lastChartData = null;
+        let serverChartDataPayload = null; // Stores structural charts mapping back from server
+        
+        // Navigation Offsets State Tracking
+        let currentWeekOffset = 0;
+        let currentYearOffset = 0;
 
         // ============================================================
         // 3. CHART INITIALIZATION
@@ -309,7 +344,7 @@
                             data: [0, 0, 0, 0, 0, 0, 0],
                             backgroundColor: '#cbd5e1',
                             borderRadius: 6,
-                            order: 2,
+                            order: 3,
                             yAxisID: 'y'
                         },
                         {
@@ -317,14 +352,26 @@
                             data: [0, 0, 0, 0, 0, 0, 0],
                             type: 'line',
                             borderColor: '#2d7a44',
-                            backgroundColor: 'rgba(45, 122, 68, 0.1)',
+                            backgroundColor: 'transparent', // Shadow removed cleanly
                             borderWidth: 3,
                             tension: 0.4,
-                            fill: true,
+                            fill: false,
                             pointBackgroundColor: '#2d7a44',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 5,
+                            order: 2,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Mean Line Indicator',
+                            data: [0, 0, 0, 0, 0, 0, 0],
+                            type: 'line',
+                            borderColor: '#dc3545', // Red line for mean income
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
                             order: 1,
                             yAxisID: 'y1'
                         }
@@ -351,9 +398,7 @@
                             grid: { color: 'rgba(0,0,0,0.05)' },
                             ticks: {
                                 color: '#94a3b8',
-                                callback: function(value) {
-                                    return 'KSh ' + value.toLocaleString();
-                                }
+                                callback: value => 'KSh ' + value.toLocaleString()
                             }
                         },
                         y1: {
@@ -362,9 +407,7 @@
                             grid: { display: false },
                             ticks: {
                                 color: '#94a3b8',
-                                callback: function(value) {
-                                    return 'KSh ' + value.toLocaleString();
-                                }
+                                callback: value => 'KSh ' + value.toLocaleString()
                             }
                         },
                         x: {
@@ -379,62 +422,69 @@
         // ============================================================
         // 4. UPDATE COMBINED CHART WITH NEW DATA
         // ============================================================
-        function updateCombinedChart(data, period) {
-            if (!combinedChartInstance || !data) return;
+        function updateCombinedChart() {
+            if (!combinedChartInstance || !serverChartDataPayload) return;
 
-            let displayLabels = data.labels || [];
-            let barData = data.values || [];
-            let lineData = data.values || [];
+            const periodData = serverChartDataPayload[currentCombinedPeriod];
+            const navControls = document.getElementById('chartNavigationControls');
+            const rangeLabel = document.getElementById('currentPeriodLabelRange');
 
-            if (period === 'weekly') {
-                displayLabels = data.weekly_labels || data.labels || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-                barData = data.weekly_values || data.values || [0,0,0,0,0,0,0];
-                lineData = data.weekly_values || data.values || [0,0,0,0,0,0,0];
-            } else if (period === 'monthly') {
-                displayLabels = data.monthly_labels || ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                barData = data.monthly_values || data.values || [0,0,0,0,0,0,0,0,0,0,0,0];
-                lineData = data.monthly_values || data.values || [0,0,0,0,0,0,0,0,0,0,0,0];
-            } else if (period === 'yearly') {
-                displayLabels = data.yearly_labels || data.labels || ['2026'];
-                barData = data.yearly_values || data.values || [0];
-                lineData = data.yearly_values || data.values || [0];
+            // Set dynamic titles and adjust navigation bar presentation
+            if (currentCombinedPeriod === 'weekly') {
+                navControls.classList.remove('d-none');
+                rangeLabel.innerText = periodData.range;
+                combinedChartInstance.data.datasets[2].label = 'Weekly Mean Income';
+            } else if (currentCombinedPeriod === 'monthly') {
+                navControls.classList.remove('d-none');
+                rangeLabel.innerText = periodData.range;
+                combinedChartInstance.data.datasets[2].label = 'Monthly Mean Income';
+            } else {
+                navControls.classList.add('d-none'); // Hide navigation controls on yearly views
+                combinedChartInstance.data.datasets[2].label = 'Yearly Mean Income';
             }
 
-            // Update bar data (distribution)
-            combinedChartInstance.data.labels = displayLabels;
-            combinedChartInstance.data.datasets[0].data = barData;
-            combinedChartInstance.data.datasets[1].data = lineData;
+            // Sync structural arrays
+            combinedChartInstance.data.labels = periodData.labels;
+            combinedChartInstance.data.datasets[0].data = periodData.data;
+            combinedChartInstance.data.datasets[1].data = periodData.data;
+            
+            // Build flat dataset across current target metrics for the red horizontal line
+            combinedChartInstance.data.datasets[2].data = Array(periodData.labels.length).fill(periodData.mean);
 
-            // Highlight the highest bar
-            const maxVal = Math.max(...barData, 0);
+            // Highlight peak index bars cleanly
+            const maxVal = Math.max(...periodData.data, 0);
             combinedChartInstance.data.datasets[0].backgroundColor = (ctx) => {
-                const val = ctx.raw || 0;
-                return val === maxVal && maxVal > 0 ? '#2d7a44' : '#cbd5e1';
+                return (ctx.raw === maxVal && maxVal > 0) ? '#2d7a44' : '#cbd5e1';
             };
 
-            // Update title
-            const titles = { 
-                weekly: 'Revenue Distribution & Velocity (Weekly)', 
-                monthly: 'Revenue Distribution & Velocity (Monthly)', 
-                yearly: 'Revenue Distribution & Velocity (Yearly)' 
-            };
-            document.getElementById('combinedChartTitle').textContent = titles[period] || 'Revenue Distribution & Velocity Curve';
-
+            document.getElementById('combinedChartTitle').textContent = `Revenue Analytics (${currentCombinedPeriod.charAt(0).toUpperCase() + currentCombinedPeriod.slice(1)})`;
             combinedChartInstance.update();
         }
 
         // ============================================================
-        // 5. FILE UPLOAD HANDLER
+        // 5. FILE UPLOAD & RE-ENGAGEMENT SYSTEM ENGINE
         // ============================================================
-        function processFileUpload(file) {
-            if (!file) return;
-
+        function processFileUpload(file, fallbackHistoryId = null) {
             const statusBox = document.getElementById('upload-status');
             statusBox.classList.remove('d-none');
-            statusBox.innerText = "Parsing structural attributes and pipeline arrays...";
+            statusBox.innerText = "Processing structural layout data arrays...";
 
             const formData = new FormData();
-            formData.append('file', file);
+            
+            if (file) {
+                formData.append('file', file);
+                currentWeekOffset = 0;
+                currentYearOffset = 0;
+            } else if (fallbackHistoryId) {
+                formData.append('history_id', fallbackHistoryId);
+                currentWeekOffset = 0;
+                currentYearOffset = 0;
+            } else {
+                formData.append('use_existing', 'true');
+            }
+
+            formData.append('week_offset', currentWeekOffset);
+            formData.append('year_offset', currentYearOffset);
 
             fetch('/api/upload', { method: 'POST', body: formData })
                 .then(res => res.json())
@@ -442,37 +492,38 @@
                     if (data.status === 'success') {
                         statusBox.innerText = "Data metrics calculated cleanly!";
 
+                        // Update Dashboard Figures
                         document.getElementById('total-earnings').innerText = 'KSh ' + data.total_earnings.toLocaleString();
                         document.getElementById('forecast').innerText = 'KSh ' + data.next_month_forecast.toLocaleString();
                         document.getElementById('avg-daily').innerText = 'KSh ' + data.avg_daily.toLocaleString();
                         document.getElementById('peak-day').innerText = data.peak_day;
+                        document.getElementById('upload-timestamp').innerText = data.active_id ? ("Active statement parsed on: " + data.anchor_date) : data.anchor_date;
 
-                        const now = new Date();
-                        document.getElementById('upload-timestamp').innerText = "Last statement uploaded: " + now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                        const summaryBadge = document.getElementById('statement-summary-badge');
+                        if (summaryBadge) {
+                            if (data.active_id && data.years_summary) {
+                                summaryBadge.innerText = data.years_summary;
+                                summaryBadge.classList.remove('d-none');
+                            } else {
+                                // Hide the details badge cleanly on a zeroed dashboard state
+                                summaryBadge.classList.add('d-none');
+                                summaryBadge.innerText = "";
+                            }
+                        }
 
-                        // Store chart data with all period aggregations
-                        lastChartData = {
-                            labels: data.chart_labels || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-                            values: data.chart_data || [0,0,0,0,0,0,0],
-                            weekly_labels: data.chart_labels || ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-                            weekly_values: data.chart_data || [0,0,0,0,0,0,0],
-                            monthly_labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
-                            monthly_values: data.monthly_data || [0,0,0,0,0,0,0,0,0,0,0,0],
-                            yearly_labels: data.yearly_labels || ['2026'],
-                            yearly_values: data.yearly_data || [0]
-                        };
+                        // Load Charts Mapping Structs
+                        serverChartDataPayload = data.charts;
+                        updateCombinedChart();
+                        
+                        // Regenerate structural elements inside history repository component
+                        populateHistoryTable(data.history_log, data.active_id);
 
-                        // Update combined chart with current period
-                        updateCombinedChart(lastChartData, currentCombinedPeriod);
-
-                        // Close dropdown
                         setTimeout(() => {
                             const dropdownEl = document.getElementById('uploadDropdownButton');
                             const inst = bootstrap.Dropdown.getInstance(dropdownEl);
                             if (inst) inst.hide();
                             statusBox.classList.add('d-none');
-                        }, 800);
-
+                        }, 600);
                     } else {
                         statusBox.innerText = "❌ Verification error: " + data.message;
                     }
@@ -483,33 +534,132 @@
                 });
         }
 
+        function populateHistoryTable(log, activeId) {
+            const tbody = document.getElementById('history-table-body');
+            if (!log || log.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-4">No tracking entries found in session cache log history.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = log.map(item => {
+                const isActive = item.id === activeId;
+                return `
+                    <tr class="${isActive ? 'table-success-light' : ''}">
+                        <td class="fw-semibold">
+                            📁 ${item.filename} ${isActive ? '<span class="badge bg-success ms-2">Active</span>' : ''}
+                        </td>
+                        <td>${item.date_uploaded}</td>
+                        <td class="text-muted">${item.time_uploaded}</td>
+                        <td class="text-end">
+                            <div class="d-inline-flex gap-2">
+                                <button class="btn btn-sm ${isActive ? 'btn-success' : 'btn-outline-primary'} rounded-pill px-3" 
+                                        onclick="loadHistoricalStatement('${item.id}')" ${isActive ? 'disabled' : ''}>
+                                    ${isActive ? 'Loaded' : 'View'}
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger rounded-circle p-0" 
+                                        style="width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;"
+                                        title="Delete Statement"
+                                        onclick="deleteHistoricalStatement('${item.id}', event)">
+                                    🗑️
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function deleteHistoricalStatement(id, event) {
+            event.stopPropagation();
+            if (!confirm("Are you sure you want to permanently delete this statement from your history records?")) {
+                return;
+            }
+
+            fetch(`/api/delete/${id}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Refresh application stats data layout smoothly to calculate state representation
+                        processFileUpload(null);
+                    } else {
+                        alert("❌ Delete failure: " + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error("Critical communications breakdown across deletion script execution channels:", err);
+                });
+        }
+
+        function loadHistoricalStatement(id) {
+            processFileUpload(null, id);
+            // Auto switch user back to Dashboard view port mode to observe changes
+            document.getElementById('nav-dashboard-link').click();
+        }
+
         // ============================================================
-        // 6. DROPDOWN EVENT LISTENERS
+        // 6. EVENT BINDING LAYER
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
-            // Combined chart period dropdown
-            document.querySelectorAll('#combinedPeriodDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+            const dashboardLink = document.getElementById('nav-dashboard-link');
+            const historyLink = document.getElementById('nav-history-link');
+            const dashboardView = document.getElementById('dashboard-view');
+            const historyView = document.getElementById('history-view');
+
+            // Workspace Routing Tab Switchers
+            dashboardLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                historyLink.classList.remove('active');
+                this.classList.add('active');
+                historyView.classList.add('d-none');
+                dashboardView.classList.remove('d-none');
+            });
+
+            historyLink.addEventListener('click', function(e) {
+                e.preventDefault();
+                dashboardLink.classList.remove('active');
+                this.classList.add('active');
+                dashboardView.add && dashboardView.classList.add('d-none');
+                dashboardView.classList.add('d-none');
+                historyView.classList.remove('d-none');
+            });
+
+            // Graph Dropdown Configuration Targets
+            document.querySelectorAll('.chart-dropdown .dropdown-item').forEach(item => {
                 item.addEventListener('click', function(e) {
                     e.preventDefault();
-                    const period = this.dataset.period;
-                    currentCombinedPeriod = period;
+                    currentCombinedPeriod = this.dataset.period;
                     document.getElementById('combinedPeriodLabel').textContent = this.textContent;
 
-                    // Update active state
                     this.closest('.dropdown-menu').querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
                     this.classList.add('active');
 
-                    if (lastChartData) {
-                        updateCombinedChart(lastChartData, period);
-                    }
+                    updateCombinedChart();
                 });
+            });
+
+            // Offset Paginations
+            document.getElementById('prevPeriodBtn').addEventListener('click', () => {
+                if (currentCombinedPeriod === 'weekly') currentWeekOffset--;
+                else if (currentCombinedPeriod === 'monthly') currentYearOffset--;
+                processFileUpload(null);
+            });
+
+            document.getElementById('nextPeriodBtn').addEventListener('click', () => {
+                if (currentCombinedPeriod === 'weekly') currentWeekOffset++;
+                else if (currentCombinedPeriod === 'monthly') currentYearOffset++;
+                processFileUpload(null);
             });
         });
 
         // ============================================================
-        // 7. INIT
+        // 7. INIT APPLICATION WORKSPACE
         // ============================================================
-        window.onload = initCombinedChart;
+        window.onload = function() {
+            initCombinedChart();
+            
+            // Automatically fetch existing data patterns and history logs on page load
+            processFileUpload(null);
+        };
     </script>
 
 </body>
