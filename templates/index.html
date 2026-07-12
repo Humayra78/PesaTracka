@@ -269,10 +269,112 @@
             background: var(--dropzone-hover-bg);
         }
 
+        /* ===== FULL MOBILE RESPONSIVE OVERRIDE ===== */
         @media (max-width: 768px) {
-            .sidebar { width: 160px; padding: 15px 8px; }
-            .main-content { padding: 20px; }
-            .calendar-dropdown-menu { min-width: 280px; right: -20px; }
+            body {
+                flex-direction: column; /* Stack navbar above content */
+                min-height: 100vh;
+            }
+            
+            .sidebar {
+                width: 100% !important;
+                min-height: auto !important;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--sidebar-border);
+                padding: 12px 16px;
+                flex-direction: row !important;
+                justify-content: space-between;
+                align-items: center;
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+            }
+
+            .sidebar > div:first-child {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                width: auto;
+            }
+
+            .logo-area {
+                margin-bottom: 0 !important;
+                font-size: 1.2rem;
+            }
+
+            nav {
+                display: flex;
+                gap: 8px;
+            }
+
+            .nav-link {
+                margin-bottom: 0 !important;
+                padding: 6px 12px !important;
+                font-size: 0.85rem;
+                border-radius: 8px;
+            }
+
+            .sidebar .mt-auto {
+                margin-top: 0 !important;
+            }
+
+            .main-content {
+                padding: 16px !important;
+                width: 100%;
+                overflow-x: hidden; /* Stops horizontal scrolling entirely */
+            }
+
+            header {
+                flex-direction: column;
+                align-items: start !important;
+                gap: 12px;
+                margin-bottom: 20px !important;
+            }
+
+            header > div:first-child {
+                width: 100%;
+            }
+
+            header .d-flex.align-items-center {
+                width: 100%;
+                justify-content: space-between; /* Keeps toggle and upload balanced */
+            }
+
+            .forecast-value {
+                font-size: 1.8rem !important; /* Smaller text fits standard phone widths */
+            }
+
+            .stat-card {
+                padding: 15px;
+            }
+
+            .stat-value {
+                font-size: 1.3rem;
+            }
+
+            .chart-box {
+                padding: 15px !important;
+            }
+
+            .chart-box .d-flex {
+                flex-direction: column;
+                align-items: start !important;
+                gap: 10px;
+            }
+
+            .chart-box .d-flex .d-flex {
+                width: 100%;
+                justify-content: space-between;
+            }
+
+            .calendar-dropdown-menu {
+                width: 100vw;
+                max-width: 320px;
+                right: auto;
+                left: 50%;
+                transform: translateX(-50%); /* Centers calendar on phone screens */
+            }
         }
     </style>
 </head>
