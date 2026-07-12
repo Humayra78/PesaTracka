@@ -366,16 +366,27 @@
                 max-height: 100vh !important;
                 z-index: 2000 !important;
                 background: var(--chart-bg) !important;
-                padding: 15px !important;
+                padding: 20px 15px !important;
                 margin: 0 !important;
                 border-radius: 0 !important;
                 display: flex;
                 flex-direction: column;
+                overflow-y: auto; /* Adds fallback scrolling instead of squishing elements */
+            }
+
+            .chart-box.maximized-graph .d-flex {
+                flex-direction: row !important; /* Keeps the controls on a clean line */
+                justify-content: space-between !important;
+                align-items: center !important;
+                width: 100% !important;
+                margin-bottom: 20px !important;
             }
 
             .chart-box.maximized-graph canvas {
-                flex: 1 !important;
-                max-height: 80% !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: 60vh !important; /* Constrains the graph height so it cannot stretch out of shape */
+                margin: auto 0;
             }
         }
     </style>
@@ -1123,9 +1134,19 @@
                 if (isMaximized) {
                     this.innerHTML = "❌ Close View";
                     this.classList.replace('btn-outline-secondary', 'btn-danger');
+                    
+                    // Force Chart.js to recalculate fluidly based on the container constraints
+                    if (combinedChartInstance) {
+                        combinedChartInstance.options.maintainAspectRatio = false;
+                    }
                 } else {
                     this.innerHTML = "🔍 Maximize";
                     this.classList.replace('btn-danger', 'btn-outline-secondary');
+                    
+                    // Return to standard aspect ratio constraints
+                    if (combinedChartInstance) {
+                        combinedChartInstance.options.maintainAspectRatio = true;
+                    }
                 }
                 
                 // Redraw chart engine boundary limits instantly to fill viewport sizing updates
