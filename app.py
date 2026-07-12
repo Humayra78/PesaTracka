@@ -1,16 +1,19 @@
 import os
 import uuid
-import json
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session
 from functools import wraps
 import pandas as pd
+import io  # Added for handling in-memory string streams
 from cleaner import DataCleaner
 from predictor import Predictor
 from auth_handler import AuthenticationHandler
+from firebase_admin import firestore
 
 app = Flask(__name__)
 app.secret_key = 'pesatracka_super_secret_session_encryption_key'
+
+db = firestore.client()
 
 def login_required(f):
     @wraps(f)
@@ -19,6 +22,26 @@ def login_required(f):
             return redirect(url_for('login_page'))
         return f(*args, **kwargs)
     return decorated_function
+
+def load_user_history_from_firebase(user_id):
+    try:
+        user_doc_ref = db.collection('user_histories').document(str(user_id))
+        doc = user_doc_ref.get()
+        if doc.exists:
+            return doc.to_dict().get('statements', [])
+    except Exception as e:
+        print(f"Error fetching from Firestore: {e}")
+    return []
+
+def save_user_history_to_firebase(user_id, statement_list):
+    try:
+        user_doc_ref = db.collection('user_histories').document(str(user_id))
+        user_doc_ref.set({
+            'statements': statement_list,
+            'last_updated': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+    except Exception as e:
+        print(f"Failed to persist historical directory logs: {e}")
 
 @app.route('/')
 @login_required
@@ -34,13 +57,9 @@ def login_page():
         if result['status'] == 'success':
             from firebase_admin import auth
             user = auth.get_user_by_email(data['email'])
-            
-            first_name = user.display_name.split()[0] if user.display_name else "User"
-            session['user_name'] = first_name
+            session['user_name'] = user.display_name.split()[0] if user.display_name else "User"
             session['user_id'] = user.uid
-            
             session.pop('active_statement_id', None)
-            
             return redirect(url_for('home'))
         return render_template('auth.html', error=result['message'], mode='login')
     return render_template('auth.html', mode='login')
@@ -50,12 +69,8 @@ def signup_page():
     if request.method == 'POST':
         data = request.form
         result = AuthenticationHandler.register_user(
-            email=data['email'],
-            password=data['password'],
-            phone_number=data['phone'],
-            business_name=data['business_name'],
-            first_name=data['first_name'],
-            last_name=data['last_name']
+            email=data['email'], password=data['password'], phone_number=data['phone'],
+            business_name=data['business_name'], first_name=data['first_name'], last_name=data['last_name']
         )
         if result['status'] == 'success':
             return redirect(url_for('login_page', msg="Account created successfully. Please log in."))
@@ -67,95 +82,69 @@ def logout():
     AuthenticationHandler.logout_user()
     return redirect(url_for('login_page'))
 
-UPLOAD_DIR = os.path.join(os.getcwd(), "saved_statements")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-HISTORY_DB_PATH = os.path.join(os.getcwd(), "user_histories.json")
-
-def load_persistent_histories():
-    if not os.path.exists(HISTORY_DB_PATH):
-        return {}
-    try:
-        with open(HISTORY_DB_PATH, 'r') as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-def save_persistent_history(user_id, statement_list):
-    db = load_persistent_histories()
-    db[str(user_id)] = statement_list
-    try:
-        with open(HISTORY_DB_PATH, 'w') as f:
-            json.dump(db, f, indent=4)
-    except Exception as e:
-        print(f"Failed to persist historical directory profile logs: {e}")
 
 @app.route('/api/upload', methods=['POST'])
 @login_required
 def upload_statement():
-    user_id = session.get('user_id')
-    if not user_id:
-        user_id = session.get('user_name', 'default_user')
-
-    all_histories = load_persistent_histories()
-    user_history_log = all_histories.get(str(user_id), [])
+    user_id = session.get('user_id', 'default_user')
+    user_history_log = load_user_history_from_firebase(user_id)
 
     history_id = request.form.get('history_id')
     selected_date = request.form.get('selected_date')
     chart_period = request.form.get('chart_period', 'weekly')
     
+    csv_data_stream = None
+    
+    # CASE A: User clicked an old historical entry
     if history_id:
         matched = next((item for item in user_history_log if item['id'] == history_id), None)
-        if matched and os.path.exists(matched['file_path']):
-            target_path = matched['file_path']
+        if matched and 'raw_csv_content' in matched:
+            csv_data_stream = io.StringIO(matched['raw_csv_content'])
             session['active_statement_id'] = history_id
         else:
-            return jsonify({"status": "error", "message": "Selected statement file could not be found."}), 404
+            return jsonify({"status": "error", "message": "Statement data could not be retrieved from cloud sync."}), 404
             
+    # CASE B: User is uploading a completely new file
     elif 'file' in request.files and request.files['file'].filename != '':
         file = request.files['file']
         if not file.filename.endswith('.csv'):
             return jsonify({"status": "error", "message": "File format type must be extension .csv"}), 400
             
+        # Read file directly to text without touching the server disk
+        try:
+            raw_text = file.read().decode('utf-8', errors='ignore')
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Failed to parse file text stream: {str(e)}"}), 400
+            
+        csv_data_stream = io.StringIO(raw_text)
         unique_id = str(uuid.uuid4())
-        safe_filename = f"{unique_id}_{file.filename}"
-        target_path = os.path.join(UPLOAD_DIR, safe_filename)
-        file.save(target_path)
-        
         now = datetime.now()
+        
         new_record = {
             "id": unique_id,
             "filename": file.filename,
             "date_uploaded": now.strftime('%d %b %Y'),
             "time_uploaded": now.strftime('%H:%M:%S'),
-            "file_path": target_path
+            "raw_csv_content": raw_text  # Saved securely to the database document
         }
         
         user_history_log.append(new_record)
-        save_persistent_history(user_id, user_history_log)
+        save_user_history_to_firebase(user_id, user_history_log)
         session['active_statement_id'] = unique_id
         
+    # CASE C: Re-fetching the active view on refresh
     else:
         active_id = session.get('active_statement_id')
-        matched = None
-        if active_id:
-            matched = next((item for item in user_history_log if item['id'] == active_id), None)
+        matched = next((item for item in user_history_log if item['id'] == active_id), None) if active_id else None
             
-        if matched and os.path.exists(matched['file_path']):
-            target_path = matched['file_path']
+        if matched and 'raw_csv_content' in matched:
+            csv_data_stream = io.StringIO(matched['raw_csv_content'])
         else:
+            # Fallback for empty state remains intact
             return jsonify({
-                "status": "success",
-                "total_earnings": 0.0,
-                "transaction_count": 0,
-                "avg_daily": 0.0,
-                "peak_day": "--",
-                "next_month_forecast": 0.0,
-                "years_summary": "No active data metrics loaded.",
-                "anchor_date": "No statement processed yet",
-                "history_log": user_history_log,
-                "active_id": None,
-                "available_dates": [],
+                "status": "success", "total_earnings": 0.0, "transaction_count": 0, "avg_daily": 0.0, "peak_day": "--",
+                "next_month_forecast": 0.0, "years_summary": "No active data metrics loaded.",
+                "anchor_date": "No statement processed yet", "history_log": user_history_log, "active_id": None, "available_dates": [],
                 "daily_hourly_data": {"labels": [], "data": [], "selected_date": ""},
                 "charts": {
                     "daily": { "labels": [], "data": [], "mean": 0, "selected_date": "" },
@@ -166,7 +155,8 @@ def upload_statement():
             })
 
     try:
-        cleaner = DataCleaner(target_path)
+        # Pass the memory data stream directly into cleaner
+        cleaner = DataCleaner(csv_data_stream)
         df = cleaner.clean_data()
         
         if df.empty:
@@ -182,7 +172,6 @@ def upload_statement():
         available_dates = sorted(df['Date'].dt.date.unique().tolist())
         available_dates_str = [d.strftime('%Y-%m-%d') for d in available_dates]
         
-        # Get daily hourly data
         daily_hourly_data = {"labels": [], "data": [], "selected_date": ""}
         if chart_period == 'daily' and selected_date:
             try:
@@ -191,7 +180,6 @@ def upload_statement():
             except ValueError:
                 df_day = pd.DataFrame()
         else:
-            # Default to most recent date for daily view
             if available_dates:
                 target_date = available_dates[-1]
                 df_day = df[df['Date'].dt.date == target_date]
@@ -201,7 +189,6 @@ def upload_statement():
         
         if not df_day.empty:
             df_day_copy = df_day.copy()
-            # FIX: Pull directly from the Hour column generated by cleaner.py to avoid altering the forecast frequency
             if 'Hour' not in df_day_copy.columns:
                 df_day_copy['Hour'] = df_day_copy['Date'].dt.hour
                 
@@ -210,14 +197,11 @@ def upload_statement():
             hourly_data = [float(hour_grouping.get(h, 0)) for h in all_hours]
             hourly_labels = [f"{h:02d}:00" for h in all_hours]
             daily_hourly_data = {
-                "labels": hourly_labels,
-                "data": hourly_data,
-                "selected_date": selected_date or ""
+                "labels": hourly_labels, "data": hourly_data, "selected_date": selected_date or ""
             }
         else:
             daily_hourly_data = {"labels": [f"{h:02d}:00" for h in range(24)], "data": [0]*24, "selected_date": ""}
         
-        # Global metrics
         total_earnings = float(df['Amount (KES)'].sum())
         transaction_count = len(df)
         included_years = sorted(df['Date'].dt.year.unique().tolist())
@@ -232,7 +216,6 @@ def upload_statement():
         model_engine = Predictor()
         prediction = float(model_engine.forecast_next_period(df))
         
-        # Weekly view
         start_of_week = adjusted_week_anchor - timedelta(days=adjusted_week_anchor.weekday())
         start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
@@ -246,7 +229,6 @@ def upload_statement():
         weekly_mean = float(week_grouping.mean())
         week_range_str = f"{start_of_week.strftime('%d %b')} - {end_of_week.strftime('%d %b %Y')}"
 
-        # Monthly view
         df_year = df[df['Date'].dt.year == adjusted_year_num]
         df_year = df_year.copy()
         df_year['MonthNum'] = df_year['Date'].dt.month
@@ -257,24 +239,23 @@ def upload_statement():
         monthly_mean = float(month_grouping.mean())
         monthly_year_str = f"Year: {adjusted_year_num}"
 
-        # Yearly view
         year_grouping = df.groupby(df['Date'].dt.year)['Amount (KES)'].sum()
         yearly_labels = [str(y) for y2 in sorted(year_grouping.index) for y in [y2]]
         yearly_data = [float(year_grouping[int(y)]) for y in yearly_labels]
         yearly_mean = float(year_grouping.mean()) if len(yearly_labels) > 0 else 0.0
 
+        # Strip out raw string files before sending JSON payloads over networks to save bandwidth
+        clean_history_payload = []
+        for log_entry in user_history_log:
+            entry_copy = log_entry.copy()
+            entry_copy.pop('raw_csv_content', None)
+            clean_history_payload.append(entry_copy)
+
         return jsonify({
-            "status": "success",
-            "total_earnings": total_earnings,
-            "transaction_count": transaction_count,
-            "avg_daily": round(avg_daily_income, 2),
-            "peak_day": peak_day,
-            "next_month_forecast": round(prediction, 2),
-            "years_summary": years_summary,
-            "anchor_date": base_anchor.strftime('%d %b %Y at %H:%M'),
-            "history_log": user_history_log,
-            "active_id": session.get('active_statement_id'),
-            "available_dates": available_dates_str,
+            "status": "success", "total_earnings": total_earnings, "transaction_count": transaction_count,
+            "avg_daily": round(avg_daily_income, 2), "peak_day": peak_day, "next_month_forecast": round(prediction, 2),
+            "years_summary": years_summary, "anchor_date": base_anchor.strftime('%d %b %Y at %H:%M'),
+            "history_log": clean_history_payload, "active_id": session.get('active_statement_id'), "available_dates": available_dates_str,
             "daily_hourly_data": daily_hourly_data,
             "charts": {
                 "daily": { "labels": daily_hourly_data["labels"], "data": daily_hourly_data["data"], "mean": round(sum(daily_hourly_data["data"]) / 24 if daily_hourly_data["data"] else 0, 2), "selected_date": daily_hourly_data["selected_date"] },
@@ -290,67 +271,47 @@ def upload_statement():
 @app.route('/api/rename/<string:history_id>', methods=['POST'])
 @login_required
 def rename_statement(history_id):
-    user_id = session.get('user_id')
-    if not user_id:
-        user_id = session.get('user_name', 'default_user')
-
+    user_id = session.get('user_id', 'default_user')
     new_name = request.form.get('new_filename', '').strip()
     if not new_name:
         return jsonify({"status": "error", "message": "Filename cannot be empty."}), 400
         
-    # Ensure it keeps the .csv extension visually if the user drops it
     if not new_name.lower().endswith('.csv'):
         new_name += '.csv'
 
-    all_histories = load_persistent_histories()
-    user_history_log = all_histories.get(str(user_id), [])
-
+    user_history_log = load_user_history_from_firebase(user_id)
     matched_item = next((item for item in user_history_log if item['id'] == history_id), None)
     
     if not matched_item:
         return jsonify({"status": "error", "message": "Statement not found in history archive."}), 404
 
-    # Update the display name
     matched_item['filename'] = new_name
-    save_persistent_history(user_id, user_history_log)
+    save_user_history_to_firebase(user_id, user_history_log)
 
+    for item in user_history_log: item.pop('raw_csv_content', None)
     return jsonify({
-        "status": "success", 
-        "message": "Statement renamed successfully.",
-        "history_log": user_history_log,
-        "active_id": session.get('active_statement_id')
+        "status": "success", "message": "Statement renamed successfully.",
+        "history_log": user_history_log, "active_id": session.get('active_statement_id')
     })
 
 @app.route('/api/delete/<string:history_id>', methods=['POST'])
 @login_required
 def delete_statement(history_id):
-    user_id = session.get('user_id')
-    if not user_id:
-        user_id = session.get('user_name', 'default_user')
-
-    all_histories = load_persistent_histories()
-    user_history_log = all_histories.get(str(user_id), [])
-
-    matched_index = next((i for i, item in enumerate(user_history_log) if item['id'] == history_id), None)
+    user_id = session.get('user_id', 'default_user')
+    user_history_log = load_user_history_from_firebase(user_id)
     
+    matched_index = next((i for i, item in enumerate(user_history_log) if item['id'] == history_id), None)
     if matched_index is None:
         return jsonify({"status": "error", "message": "Statement not found in history archive."}), 404
 
-    matched_item = user_history_log[matched_index]
-    
-    if os.path.exists(matched_item['file_path']):
-        try:
-            os.remove(matched_item['file_path'])
-        except Exception as e:
-            print(f"Failed to delete structural file asset: {e}")
-
     user_history_log.pop(matched_index)
-    save_persistent_history(user_id, user_history_log)
+    save_user_history_to_firebase(user_id, user_history_log)
 
     if session.get('active_statement_id') == history_id:
         session.pop('active_statement_id', None)
 
-    return jsonify({"status": "success", "message": "Statement removed cleanly."})
+    for item in user_history_log: item.pop('raw_csv_content', None)
+    return jsonify({"status": "success", "message": "Statement removed cleanly.", "history_log": user_history_log})
 
 if __name__ == '__main__':
     app.run(debug=True)
