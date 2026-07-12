@@ -30,10 +30,12 @@
             --status-text: #005f3a;
             --status-border: #b8d5c7;
             --logo-color: #2d7a44;
+            --calendar-bg: #ffffff;
+            --calendar-hover: #f0fdf4;
+            --calendar-selected: #2d7a44;
             transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
-        /* Dark mode variables */
         [data-theme="dark"] {
             --light-bg: #0f172a;
             --card-bg: #1e293b;
@@ -55,6 +57,9 @@
             --status-text: #86efac;
             --status-border: #2d7a44;
             --logo-color: #4ade80;
+            --calendar-bg: #1e293b;
+            --calendar-hover: #2d7a44;
+            --calendar-selected: #4ade80;
         }
         
         body { background-color: var(--light-bg); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; min-height: 100vh; margin:0; color: var(--text-primary); transition: background-color 0.3s ease, color 0.3s ease;}
@@ -88,15 +93,12 @@
             color: var(--text-muted);
         }
 
-        /* Fix for dropdown: ensure proper z-index and visibility */
         .dropdown-menu {
             z-index: 1050;
         }
-        /* Prevent dropdown from closing when clicking inside */
         .dropdown-menu .dropzone-box {
             cursor: pointer;
         }
-        /* Ensure the dropdown toggle works properly */
         .dropdown-toggle::after {
             display: inline-block;
             margin-left: 0.255em;
@@ -108,7 +110,6 @@
             border-left: 0.3em solid transparent;
         }
 
-        /* ===== Chart dropdowns ===== */
         .chart-dropdown .btn {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
@@ -134,17 +135,144 @@
         }
         .chart-dropdown .dropdown-item:hover {
             background: var(--dropzone-hover-bg);
-            
         }
         .chart-dropdown .dropdown-item.active {
             background: var(--primary-green);
             color: white;
         }
 
-        /* ===== Responsive ===== */
+        /* Calendar Dropdown Styles */
+        .calendar-dropdown-container {
+            position: relative;
+        }
+        .calendar-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 1060;
+            min-width: 320px;
+            display: none;
+        }
+        .calendar-dropdown-menu.show {
+            display: block;
+        }
+        .calendar-container {
+            background: var(--card-bg);
+            border-radius: 12px;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .calendar-header .month-year {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+        }
+        .calendar-header .btn-cal-nav {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 0 8px;
+        }
+        .calendar-header .btn-cal-nav:hover {
+            color: var(--primary-green);
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        .calendar-grid .day-name {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-align: center;
+            font-weight: 600;
+            padding: 4px 0;
+        }
+        .calendar-grid .day-cell {
+            text-align: center;
+            padding: 6px 0;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .calendar-grid .day-cell:hover {
+            background: var(--calendar-hover);
+            color: var(--text-primary);
+        }
+        .calendar-grid .day-cell.has-data {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        .calendar-grid .day-cell.has-data::after {
+            content: '';
+            position: absolute;
+            bottom: 2px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--primary-green);
+        }
+        .calendar-grid .day-cell.selected {
+            background: var(--calendar-selected);
+            color: white;
+        }
+        .calendar-grid .day-cell.selected.has-data::after {
+            background: white;
+        }
+        .calendar-grid .day-cell.empty {
+            cursor: default;
+        }
+        .calendar-grid .day-cell.empty:hover {
+            background: transparent;
+        }
+        .calendar-grid .day-cell.other-month {
+            opacity: 0.3;
+        }
+        .calendar-container .date-display {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--card-border);
+            padding-top: 10px;
+        }
+        .calendar-toggle-btn {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: 30px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .calendar-toggle-btn:hover {
+            border-color: var(--primary-green);
+            background: var(--dropzone-hover-bg);
+        }
+
         @media (max-width: 768px) {
             .sidebar { width: 160px; padding: 15px 8px; }
             .main-content { padding: 20px; }
+            .calendar-dropdown-menu { min-width: 280px; right: -20px; }
         }
     </style>
 </head>
@@ -166,7 +294,7 @@
 
     <!-- ===== MAIN CONTENT ===== -->
     <div class="main-content">
-        <!-- Header with dark mode toggle -->
+        <!-- Header -->
         <header class="d-flex justify-content-between align-items-center mb-3">
             <div>
                 <h2 class="fw-bold mb-1" style="color: var(--text-primary);">Welcome, {{ name }}</h2>
@@ -199,14 +327,14 @@
 
         <!-- ===== VIEWPORTS WRAPPER ===== -->
         <div id="dashboard-view">
-            <!-- ===== FORECAST CARD ===== -->
+            <!-- Forecast Card -->
             <div class="forecast-card shadow-sm">
                 <span class="forecast-label">Next Month's Projected Earnings</span>
                 <div id="forecast" class="forecast-value">KSh 0.00</div>
                 <span class="growth-badge">📊 Deep Learning Linear Sequence Forecasting Engine</span>
             </div>
 
-            <!-- ===== STATS ===== -->
+            <!-- Stats -->
             <div class="row g-4 mb-3">
                 <div class="col-md-4">
                     <div class="stat-card">
@@ -228,7 +356,7 @@
                 </div>
             </div>
 
-            <!-- ===== COMBINED CHART ===== -->
+            <!-- ===== MAIN CHART WITH DROPDOWN ===== -->
             <div class="row g-4">
                 <div class="col-12">
                     <div class="chart-box">
@@ -241,15 +369,41 @@
                                     <button class="btn btn-sm p-0 border-0" id="nextPeriodBtn" style="width:24px; height:24px; font-size:0.8rem;">▶</button>
                                 </div>
                             </div>
-                            <div class="dropdown chart-dropdown">
-                                <button class="btn dropdown-toggle" type="button" id="combinedPeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <span id="combinedPeriodLabel">Weekly</span>
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="combinedPeriodDropdown">
-                                    <li><a class="dropdown-item active" data-period="weekly">Weekly</a></li>
-                                    <li><a class="dropdown-item" data-period="monthly">Monthly</a></li>
-                                    <li><a class="dropdown-item" data-period="yearly">Yearly</a></li>
-                                </ul>
+                            <div class="d-flex align-items-center gap-2">
+                                <!-- Calendar Dropdown Toggle (visible only for daily view) -->
+                                <div class="calendar-dropdown-container">
+                                    <button class="calendar-toggle-btn" id="calendarToggleBtn" style="display:none;">
+                                        📅 <span id="selectedDateLabel">Select Date</span>
+                                    </button>
+                                    <div class="calendar-dropdown-menu" id="calendarDropdownMenu">
+                                        <div class="calendar-container">
+                                            <div class="calendar-header">
+                                                <button class="btn-cal-nav" id="prevMonthBtn">◀</button>
+                                                <span class="month-year" id="calendarMonthYear">January 2024</span>
+                                                <button class="btn-cal-nav" id="nextMonthBtn">▶</button>
+                                            </div>
+                                            <div class="calendar-grid" id="calendarGrid">
+                                                <!-- Generated by JS -->
+                                            </div>
+                                            <div class="date-display" id="selectedDateDisplay">
+                                                <span class="text-muted">Select a date to view hourly breakdown</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Period Dropdown -->
+                                <div class="dropdown chart-dropdown">
+                                    <button class="btn dropdown-toggle" type="button" id="combinedPeriodDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <span id="combinedPeriodLabel">Weekly</span>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="combinedPeriodDropdown">
+                                        <li><a class="dropdown-item" data-period="daily">Daily</a></li>
+                                        <li><a class="dropdown-item active" data-period="weekly">Weekly</a></li>
+                                        <li><a class="dropdown-item" data-period="monthly">Monthly</a></li>
+                                        <li><a class="dropdown-item" data-period="yearly">Yearly</a></li>
+                                    </ul>
+                                </div>
                             </div>
                         </div>
                         <canvas id="combinedChart" style="max-height: 400px;"></canvas>
@@ -258,7 +412,7 @@
             </div>
         </div>
 
-        <!-- ===== NEW STATEMENT HISTORY VIEWPORT ===== -->
+        <!-- ===== HISTORY VIEWPORT ===== -->
         <div id="history-view" class="d-none animate-fade-in">
             <div class="stat-card p-4">
                 <h4 class="fw-bold mb-3" style="color: var(--text-primary);">M-Pesa Statement Archive Log</h4>
@@ -296,7 +450,6 @@
             const toggleBtn = document.getElementById('darkModeToggle');
             const html = document.documentElement;
 
-            // Check saved preference
             const savedTheme = localStorage.getItem('pesatracka-theme');
             if (savedTheme === 'dark') {
                 html.setAttribute('data-theme', 'dark');
@@ -318,15 +471,17 @@
         })();
 
         // ============================================================
-        // 2. CHART INSTANCE & STATE MANAGEMENT
+        // 2. CHART INSTANCES & STATE
         // ============================================================
         let combinedChartInstance = null;
-        let currentCombinedPeriod = 'weekly';
-        let serverChartDataPayload = null; // Stores structural charts mapping back from server
+        let currentPeriod = 'weekly';
+        let serverChartDataPayload = null;
+        let availableDates = [];
+        let selectedDate = null;
         
-        // Navigation Offsets State Tracking
         let currentWeekOffset = 0;
         let currentYearOffset = 0;
+        let calendarViewDate = new Date();
 
         // ============================================================
         // 3. CHART INITIALIZATION
@@ -352,7 +507,7 @@
                             data: [0, 0, 0, 0, 0, 0, 0],
                             type: 'line',
                             borderColor: '#2d7a44',
-                            backgroundColor: 'transparent', // Shadow removed cleanly
+                            backgroundColor: 'transparent',
                             borderWidth: 3,
                             tension: 0.4,
                             fill: false,
@@ -367,7 +522,7 @@
                             label: 'Mean Line Indicator',
                             data: [0, 0, 0, 0, 0, 0, 0],
                             type: 'line',
-                            borderColor: '#dc3545', // Red line for mean income
+                            borderColor: '#dc3545',
                             borderWidth: 2,
                             borderDash: [5, 5],
                             pointRadius: 0,
@@ -420,54 +575,180 @@
         }
 
         // ============================================================
-        // 4. UPDATE COMBINED CHART WITH NEW DATA
+        // 4. UPDATE CHART
         // ============================================================
         function updateCombinedChart() {
             if (!combinedChartInstance || !serverChartDataPayload) return;
 
-            const periodData = serverChartDataPayload[currentCombinedPeriod];
+            const periodData = serverChartDataPayload[currentPeriod];
+            if (!periodData) return;
+
             const navControls = document.getElementById('chartNavigationControls');
             const rangeLabel = document.getElementById('currentPeriodLabelRange');
+            const calendarToggle = document.getElementById('calendarToggleBtn');
 
-            // Set dynamic titles and adjust navigation bar presentation
-            if (currentCombinedPeriod === 'weekly') {
-                navControls.classList.remove('d-none');
-                rangeLabel.innerText = periodData.range;
-                combinedChartInstance.data.datasets[2].label = 'Weekly Mean Income';
-            } else if (currentCombinedPeriod === 'monthly') {
-                navControls.classList.remove('d-none');
-                rangeLabel.innerText = periodData.range;
-                combinedChartInstance.data.datasets[2].label = 'Monthly Mean Income';
+            // Show/hide calendar toggle for daily view
+            if (currentPeriod === 'daily') {
+                calendarToggle.style.display = 'inline-flex';
+                if (selectedDate) {
+                    const dateObj = new Date(selectedDate + 'T00:00:00');
+                    document.getElementById('selectedDateLabel').textContent = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                }
             } else {
-                navControls.classList.add('d-none'); // Hide navigation controls on yearly views
+                calendarToggle.style.display = 'none';
+            }
+
+            // Update navigation controls
+            if (currentPeriod === 'weekly') {
+                navControls.classList.remove('d-none');
+                rangeLabel.innerText = periodData.range || '--';
+                combinedChartInstance.data.datasets[2].label = 'Weekly Mean Income';
+            } else if (currentPeriod === 'monthly') {
+                navControls.classList.remove('d-none');
+                rangeLabel.innerText = periodData.range || '--';
+                combinedChartInstance.data.datasets[2].label = 'Monthly Mean Income';
+            } else if (currentPeriod === 'daily') {
+                navControls.classList.add('d-none');
+                combinedChartInstance.data.datasets[2].label = 'Daily Hourly Mean';
+                // For daily, labels are hours
+                if (periodData.labels && periodData.labels.length > 0) {
+                    combinedChartInstance.data.labels = periodData.labels;
+                }
+            } else {
+                navControls.classList.add('d-none');
                 combinedChartInstance.data.datasets[2].label = 'Yearly Mean Income';
             }
 
-            // Sync structural arrays
-            combinedChartInstance.data.labels = periodData.labels;
-            combinedChartInstance.data.datasets[0].data = periodData.data;
-            combinedChartInstance.data.datasets[1].data = periodData.data;
+            // Update data
+            combinedChartInstance.data.labels = periodData.labels || [];
+            combinedChartInstance.data.datasets[0].data = periodData.data || [];
+            combinedChartInstance.data.datasets[1].data = periodData.data || [];
             
-            // Build flat dataset across current target metrics for the red horizontal line
-            combinedChartInstance.data.datasets[2].data = Array(periodData.labels.length).fill(periodData.mean);
+            const meanValue = periodData.mean || 0;
+            combinedChartInstance.data.datasets[2].data = Array(periodData.data ? periodData.data.length : 0).fill(meanValue);
 
-            // Highlight peak index bars cleanly
-            const maxVal = Math.max(...periodData.data, 0);
+            const maxVal = Math.max(...(periodData.data || [0]), 0);
             combinedChartInstance.data.datasets[0].backgroundColor = (ctx) => {
                 return (ctx.raw === maxVal && maxVal > 0) ? '#2d7a44' : '#cbd5e1';
             };
 
-            document.getElementById('combinedChartTitle').textContent = `Revenue Analytics (${currentCombinedPeriod.charAt(0).toUpperCase() + currentCombinedPeriod.slice(1)})`;
+            const periodNames = {
+                'daily': 'Daily (Hourly)',
+                'weekly': 'Weekly',
+                'monthly': 'Monthly',
+                'yearly': 'Yearly'
+            };
+            document.getElementById('combinedChartTitle').textContent = `Revenue Analytics (${periodNames[currentPeriod] || 'Weekly'})`;
             combinedChartInstance.update();
         }
 
         // ============================================================
-        // 5. FILE UPLOAD & RE-ENGAGEMENT SYSTEM ENGINE
+        // 5. CALENDAR FUNCTIONS
+        // ============================================================
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            const monthYear = document.getElementById('calendarMonthYear');
+            
+            const year = calendarViewDate.getFullYear();
+            const month = calendarViewDate.getMonth();
+            
+            monthYear.textContent = new Date(year, month).toLocaleDateString('en-US', { 
+                month: 'long', 
+                year: 'numeric' 
+            });
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInPrevMonth = new Date(year, month, 0).getDate();
+            
+            let html = '';
+            
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            dayNames.forEach(name => {
+                html += `<div class="day-name">${name}</div>`;
+            });
+            
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const day = daysInPrevMonth - i;
+                html += `<div class="day-cell empty other-month">${day}</div>`;
+            }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const hasData = availableDates.includes(dateStr);
+                const isSelected = selectedDate === dateStr;
+                const classes = [
+                    'day-cell',
+                    hasData ? 'has-data' : '',
+                    isSelected ? 'selected' : '',
+                    hasData ? 'fw-semibold' : ''
+                ].filter(Boolean).join(' ');
+                
+                html += `<div class="${classes}" data-date="${dateStr}" onclick="selectDate('${dateStr}')">${day}</div>`;
+            }
+            
+            const totalCells = firstDay + daysInMonth;
+            const remainingCells = (7 - (totalCells % 7)) % 7;
+            for (let day = 1; day <= remainingCells; day++) {
+                html += `<div class="day-cell empty other-month">${day}</div>`;
+            }
+            
+            grid.innerHTML = html;
+            
+            const dateDisplay = document.getElementById('selectedDateDisplay');
+            if (selectedDate) {
+                const dateObj = new Date(selectedDate + 'T00:00:00');
+                dateDisplay.innerHTML = `<span style="color: var(--text-primary); font-weight: 600;">${dateObj.toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                })}</span>`;
+                document.getElementById('selectedDateLabel').textContent = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            }
+        }
+
+        function selectDate(dateStr) {
+            selectedDate = dateStr;
+            renderCalendar();
+            
+            // Close calendar dropdown
+            document.getElementById('calendarDropdownMenu').classList.remove('show');
+            
+            // Fetch data for selected date
+            const formData = new FormData();
+            formData.append('selected_date', dateStr);
+            formData.append('chart_period', 'daily');
+            formData.append('week_offset', currentWeekOffset);
+            formData.append('year_offset', currentYearOffset);
+            
+            fetch('/api/upload', { 
+                method: 'POST', 
+                body: formData 
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (data.charts && data.charts.daily) {
+                        serverChartDataPayload = data.charts;
+                        serverChartDataPayload.daily = data.charts.daily;
+                        updateCombinedChart();
+                    }
+                    if (data.available_dates) {
+                        availableDates = data.available_dates;
+                    }
+                }
+            })
+            .catch(err => console.error(err));
+        }
+
+        // ============================================================
+        // 6. FILE UPLOAD
         // ============================================================
         function processFileUpload(file, fallbackHistoryId = null) {
             const statusBox = document.getElementById('upload-status');
             statusBox.classList.remove('d-none');
-            statusBox.innerText = "Processing structural layout data arrays...";
+            statusBox.innerText = "Processing...";
 
             const formData = new FormData();
             
@@ -485,14 +766,18 @@
 
             formData.append('week_offset', currentWeekOffset);
             formData.append('year_offset', currentYearOffset);
+            formData.append('chart_period', currentPeriod);
+
+            if (selectedDate && currentPeriod === 'daily') {
+                formData.append('selected_date', selectedDate);
+            }
 
             fetch('/api/upload', { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        statusBox.innerText = "Data metrics calculated cleanly!";
+                        statusBox.innerText = "Data loaded successfully!";
 
-                        // Update Dashboard Figures
                         document.getElementById('total-earnings').innerText = 'KSh ' + data.total_earnings.toLocaleString();
                         document.getElementById('forecast').innerText = 'KSh ' + data.next_month_forecast.toLocaleString();
                         document.getElementById('avg-daily').innerText = 'KSh ' + data.avg_daily.toLocaleString();
@@ -505,17 +790,20 @@
                                 summaryBadge.innerText = data.years_summary;
                                 summaryBadge.classList.remove('d-none');
                             } else {
-                                // Hide the details badge cleanly on a zeroed dashboard state
                                 summaryBadge.classList.add('d-none');
                                 summaryBadge.innerText = "";
                             }
                         }
 
-                        // Load Charts Mapping Structs
+                        availableDates = data.available_dates || [];
+                        if (availableDates.length > 0 && !selectedDate) {
+                            selectedDate = availableDates[availableDates.length - 1];
+                        }
+
                         serverChartDataPayload = data.charts;
                         updateCombinedChart();
+                        renderCalendar();
                         
-                        // Regenerate structural elements inside history repository component
                         populateHistoryTable(data.history_log, data.active_id);
 
                         setTimeout(() => {
@@ -525,11 +813,11 @@
                             statusBox.classList.add('d-none');
                         }, 600);
                     } else {
-                        statusBox.innerText = "❌ Verification error: " + data.message;
+                        statusBox.innerText = "❌ Error: " + data.message;
                     }
                 })
                 .catch(err => {
-                    statusBox.innerText = "❌ Processing failure executing system script channels.";
+                    statusBox.innerText = "❌ Processing failed.";
                     console.error(err);
                 });
         }
@@ -546,7 +834,16 @@
                 return `
                     <tr class="${isActive ? 'table-success-light' : ''}">
                         <td class="fw-semibold">
-                            📁 ${item.filename} ${isActive ? '<span class="badge bg-success ms-2">Active</span>' : ''}
+                            <div class="d-flex align-items-center gap-2">
+                                <span>📁</span>
+                                <span id="name-display-${item.id}">${item.filename}</span>
+                                ${isActive ? '<span class="badge bg-success ms-1">Active</span>' : ''}
+                                <button class="btn btn-sm text-secondary p-0 border-0 ms-2" 
+                                        title="Rename Statement" 
+                                        onclick="showRenameInput('${item.id}', '${item.filename.replace(/'/g, "\\'")}', event)">
+                                    ✏️
+                                </button>
+                            </div>
                         </td>
                         <td>${item.date_uploaded}</td>
                         <td class="text-muted">${item.time_uploaded}</td>
@@ -569,6 +866,38 @@
             }).join('');
         }
 
+        function showRenameInput(id, currentName, event) {
+            event.stopPropagation();
+            const cleanName = currentName.endsWith('.csv') ? currentName.slice(0, -4) : currentName;
+            const newName = prompt("Enter a new tracking name for this statement:", cleanName);
+            
+            if (newName === null || newName.trim() === "") return; // User cancelled or left empty
+            
+            renameHistoricalStatement(id, newName.trim());
+        }
+
+        function renameHistoricalStatement(id, newName) {
+            const formData = new FormData();
+            formData.append('new_filename', newName);
+
+            fetch(`/api/rename/${id}`, { 
+                method: 'POST', 
+                body: formData 
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Re-render the table with the updated data structure logs directly
+                    populateHistoryTable(data.history_log, data.active_id);
+                } else {
+                    alert("❌ Rename failure: " + data.message);
+                }
+            })
+            .catch(err => {
+                console.error("Error updating name:", err);
+            });
+        }
+
         function deleteHistoricalStatement(id, event) {
             event.stopPropagation();
             if (!confirm("Are you sure you want to permanently delete this statement from your history records?")) {
@@ -579,25 +908,23 @@
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        // Refresh application stats data layout smoothly to calculate state representation
                         processFileUpload(null);
                     } else {
                         alert("❌ Delete failure: " + data.message);
                     }
                 })
                 .catch(err => {
-                    console.error("Critical communications breakdown across deletion script execution channels:", err);
+                    console.error("Error:", err);
                 });
         }
 
         function loadHistoricalStatement(id) {
             processFileUpload(null, id);
-            // Auto switch user back to Dashboard view port mode to observe changes
             document.getElementById('nav-dashboard-link').click();
         }
 
         // ============================================================
-        // 6. EVENT BINDING LAYER
+        // 7. EVENT BINDING
         // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
             const dashboardLink = document.getElementById('nav-dashboard-link');
@@ -605,7 +932,6 @@
             const dashboardView = document.getElementById('dashboard-view');
             const historyView = document.getElementById('history-view');
 
-            // Workspace Routing Tab Switchers
             dashboardLink.addEventListener('click', function(e) {
                 e.preventDefault();
                 historyLink.classList.remove('active');
@@ -618,46 +944,76 @@
                 e.preventDefault();
                 dashboardLink.classList.remove('active');
                 this.classList.add('active');
-                dashboardView.add && dashboardView.classList.add('d-none');
                 dashboardView.classList.add('d-none');
                 historyView.classList.remove('d-none');
             });
 
-            // Graph Dropdown Configuration Targets
+            // Period dropdown
             document.querySelectorAll('.chart-dropdown .dropdown-item').forEach(item => {
                 item.addEventListener('click', function(e) {
                     e.preventDefault();
-                    currentCombinedPeriod = this.dataset.period;
+                    currentPeriod = this.dataset.period;
                     document.getElementById('combinedPeriodLabel').textContent = this.textContent;
 
                     this.closest('.dropdown-menu').querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
                     this.classList.add('active');
 
-                    updateCombinedChart();
+                    // If switching to daily, auto-select most recent date
+                    if (currentPeriod === 'daily' && availableDates.length > 0 && !selectedDate) {
+                        selectedDate = availableDates[availableDates.length - 1];
+                    }
+
+                    processFileUpload(null);
                 });
             });
 
-            // Offset Paginations
+            // Navigation buttons
             document.getElementById('prevPeriodBtn').addEventListener('click', () => {
-                if (currentCombinedPeriod === 'weekly') currentWeekOffset--;
-                else if (currentCombinedPeriod === 'monthly') currentYearOffset--;
+                if (currentPeriod === 'weekly') currentWeekOffset--;
+                else if (currentPeriod === 'monthly') currentYearOffset--;
                 processFileUpload(null);
             });
 
             document.getElementById('nextPeriodBtn').addEventListener('click', () => {
-                if (currentCombinedPeriod === 'weekly') currentWeekOffset++;
-                else if (currentCombinedPeriod === 'monthly') currentYearOffset++;
+                if (currentPeriod === 'weekly') currentWeekOffset++;
+                else if (currentPeriod === 'monthly') currentYearOffset++;
                 processFileUpload(null);
+            });
+
+            // Calendar toggle
+            document.getElementById('calendarToggleBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                const menu = document.getElementById('calendarDropdownMenu');
+                menu.classList.toggle('show');
+            });
+
+            // Close calendar when clicking outside
+            document.addEventListener('click', function(e) {
+                const container = document.querySelector('.calendar-dropdown-container');
+                if (container && !container.contains(e.target)) {
+                    document.getElementById('calendarDropdownMenu').classList.remove('show');
+                }
+            });
+
+            // Calendar navigation
+            document.getElementById('prevMonthBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                calendarViewDate.setMonth(calendarViewDate.getMonth() - 1);
+                renderCalendar();
+            });
+
+            document.getElementById('nextMonthBtn').addEventListener('click', function(e) {
+                e.stopPropagation();
+                calendarViewDate.setMonth(calendarViewDate.getMonth() + 1);
+                renderCalendar();
             });
         });
 
         // ============================================================
-        // 7. INIT APPLICATION WORKSPACE
+        // 8. INIT
         // ============================================================
         window.onload = function() {
             initCombinedChart();
-            
-            // Automatically fetch existing data patterns and history logs on page load
             processFileUpload(null);
         };
     </script>
