@@ -3,7 +3,6 @@ from datetime import datetime
 
 class DataCleaner:
     def __init__(self, file_stream):
-        # Now handles an in-memory stream directly
         self.file_stream = file_stream
 
     def clean_data(self):
@@ -31,7 +30,7 @@ class DataCleaner:
         else:
             df['Hour'] = 0
 
-        # 6. Parse the primary Date column safely handling the mixed formats explicitly
+        # 6. Parse the primary Date column safely
         df['Date'] = df['Date'].astype(str).str.strip()
         day_first_parsed = pd.to_datetime(df['Date'], format='%d/%m/%Y', errors='coerce')
         fallback_parsed = pd.to_datetime(df['Date'], format='mixed', errors='coerce')
@@ -42,5 +41,11 @@ class DataCleaner:
         
         # 8. Sort chronologically
         earnings_df = earnings_df.sort_values(by='Date')
+
+        # 9. Pre-compute date attributes for fast downstream UI querying
+        earnings_df['DayName'] = earnings_df['Date'].dt.day_name()
+        earnings_df['Year'] = earnings_df['Date'].dt.year
+        earnings_df['MonthNum'] = earnings_df['Date'].dt.month
+        earnings_df['DateOnly'] = earnings_df['Date'].dt.strftime('%Y-%m-%d')
         
         return earnings_df

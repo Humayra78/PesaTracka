@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session
 from functools import wraps
 import pandas as pd
-import io  # Added for handling in-memory string streams
+import io
 from cleaner import DataCleaner
 from predictor import Predictor
 from auth_handler import AuthenticationHandler
@@ -14,6 +14,8 @@ app = Flask(__name__)
 app.secret_key = 'pesatracka_super_secret_session_encryption_key'
 
 db = firestore.client()
+
+PARSED_DF_CACHE = {}
 
 def login_required(f):
     @wraps(f)
@@ -35,9 +37,15 @@ def load_user_history_from_firebase(user_id):
 
 def save_user_history_to_firebase(user_id, statement_list):
     try:
+        lightweight_list = []
+        for item in statement_list:
+            entry = item.copy()
+            entry.pop('raw_csv_content', None)
+            lightweight_list.append(entry)
+
         user_doc_ref = db.collection('user_histories').document(str(user_id))
         user_doc_ref.set({
-            'statements': statement_list,
+            'statements': lightweight_list,
             'last_updated': firestore.SERVER_TIMESTAMP
         }, merge=True)
     except Exception as e:
@@ -93,16 +101,15 @@ def upload_statement():
     selected_date = request.form.get('selected_date')
     chart_period = request.form.get('chart_period', 'weekly')
     
-    csv_data_stream = None
-    
+    df = None
+
     # CASE A: User clicked an old historical entry
     if history_id:
-        matched = next((item for item in user_history_log if item['id'] == history_id), None)
-        if matched and 'raw_csv_content' in matched:
-            csv_data_stream = io.StringIO(matched['raw_csv_content'])
+        if history_id in PARSED_DF_CACHE:
+            df = PARSED_DF_CACHE[history_id]
             session['active_statement_id'] = history_id
         else:
-            return jsonify({"status": "error", "message": "Statement data could not be retrieved from cloud sync."}), 404
+            return jsonify({"status": "error", "message": "Statement session state expired. Please re-upload the statement."}), 404
             
     # CASE B: User is uploading a completely new file
     elif 'file' in request.files and request.files['file'].filename != '':
@@ -110,13 +117,14 @@ def upload_statement():
         if not file.filename.endswith('.csv'):
             return jsonify({"status": "error", "message": "File format type must be extension .csv"}), 400
             
-        # Read file directly to text without touching the server disk
         try:
             raw_text = file.read().decode('utf-8', errors='ignore')
+            csv_data_stream = io.StringIO(raw_text)
+            cleaner = DataCleaner(csv_data_stream)
+            df = cleaner.clean_data()
         except Exception as e:
             return jsonify({"status": "error", "message": f"Failed to parse file text stream: {str(e)}"}), 400
             
-        csv_data_stream = io.StringIO(raw_text)
         unique_id = str(uuid.uuid4())
         now = datetime.now()
         
@@ -124,23 +132,20 @@ def upload_statement():
             "id": unique_id,
             "filename": file.filename,
             "date_uploaded": now.strftime('%d %b %Y'),
-            "time_uploaded": now.strftime('%H:%M:%S'),
-            "raw_csv_content": raw_text  # Saved securely to the database document
+            "time_uploaded": now.strftime('%H:%M:%S')
         }
         
+        PARSED_DF_CACHE[unique_id] = df
         user_history_log.append(new_record)
         save_user_history_to_firebase(user_id, user_history_log)
         session['active_statement_id'] = unique_id
         
-    # CASE C: Re-fetching the active view on refresh
+    # CASE C: Re-fetching the active view on refresh / filter changes
     else:
         active_id = session.get('active_statement_id')
-        matched = next((item for item in user_history_log if item['id'] == active_id), None) if active_id else None
-            
-        if matched and 'raw_csv_content' in matched:
-            csv_data_stream = io.StringIO(matched['raw_csv_content'])
+        if active_id and active_id in PARSED_DF_CACHE:
+            df = PARSED_DF_CACHE[active_id]
         else:
-            # Fallback for empty state remains intact
             return jsonify({
                 "status": "success", "total_earnings": 0.0, "transaction_count": 0, "avg_daily": 0.0, "peak_day": "--",
                 "next_month_forecast": 0.0, "years_summary": "No active data metrics loaded.",
@@ -155,11 +160,7 @@ def upload_statement():
             })
 
     try:
-        # Pass the memory data stream directly into cleaner
-        cleaner = DataCleaner(csv_data_stream)
-        df = cleaner.clean_data()
-        
-        if df.empty:
+        if df is None or df.empty:
             return jsonify({"status": "error", "message": "No valid collection earnings records found."}), 400
             
         week_offset = int(request.form.get('week_offset', 0))
@@ -169,30 +170,20 @@ def upload_statement():
         adjusted_week_anchor = base_anchor + timedelta(weeks=week_offset)
         adjusted_year_num = base_anchor.year + year_offset
         
-        available_dates = sorted(df['Date'].dt.date.unique().tolist())
-        available_dates_str = [d.strftime('%Y-%m-%d') for d in available_dates]
+        available_dates = df['DateOnly'].unique().tolist()
         
         daily_hourly_data = {"labels": [], "data": [], "selected_date": ""}
         if chart_period == 'daily' and selected_date:
-            try:
-                target_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
-                df_day = df[df['Date'].dt.date == target_date]
-            except ValueError:
-                df_day = pd.DataFrame()
+            df_day = df[df['DateOnly'] == selected_date]
         else:
             if available_dates:
-                target_date = available_dates[-1]
-                df_day = df[df['Date'].dt.date == target_date]
-                selected_date = target_date.strftime('%Y-%m-%d')
+                selected_date = available_dates[-1]
+                df_day = df[df['DateOnly'] == selected_date]
             else:
                 df_day = pd.DataFrame()
         
         if not df_day.empty:
-            df_day_copy = df_day.copy()
-            if 'Hour' not in df_day_copy.columns:
-                df_day_copy['Hour'] = df_day_copy['Date'].dt.hour
-                
-            hour_grouping = df_day_copy.groupby('Hour')['Amount (KES)'].sum()
+            hour_grouping = df_day.groupby('Hour')['Amount (KES)'].sum()
             all_hours = list(range(24))
             hourly_data = [float(hour_grouping.get(h, 0)) for h in all_hours]
             hourly_labels = [f"{h:02d}:00" for h in all_hours]
@@ -204,13 +195,12 @@ def upload_statement():
         
         total_earnings = float(df['Amount (KES)'].sum())
         transaction_count = len(df)
-        included_years = sorted(df['Date'].dt.year.unique().tolist())
+        included_years = sorted(df['Year'].unique().tolist())
         years_summary = f"Includes data from: {', '.join(map(str, included_years))}"
         
-        unique_days = df['Date'].dt.date.nunique()
+        unique_days = len(available_dates)
         avg_daily_income = float(total_earnings / unique_days) if unique_days > 0 else 0.0
         
-        df['DayName'] = df['Date'].dt.day_name()
         peak_day = str(df.groupby('DayName')['Amount (KES)'].sum().idxmax())
 
         model_engine = Predictor()
@@ -229,9 +219,7 @@ def upload_statement():
         weekly_mean = float(week_grouping.mean())
         week_range_str = f"{start_of_week.strftime('%d %b')} - {end_of_week.strftime('%d %b %Y')}"
 
-        df_year = df[df['Date'].dt.year == adjusted_year_num]
-        df_year = df_year.copy()
-        df_year['MonthNum'] = df_year['Date'].dt.month
+        df_year = df[df['Year'] == adjusted_year_num]
         month_order = list(range(1, 13))
         month_grouping = df_year.groupby('MonthNum')['Amount (KES)'].sum().reindex(month_order, fill_value=0)
         
@@ -239,23 +227,16 @@ def upload_statement():
         monthly_mean = float(month_grouping.mean())
         monthly_year_str = f"Year: {adjusted_year_num}"
 
-        year_grouping = df.groupby(df['Date'].dt.year)['Amount (KES)'].sum()
-        yearly_labels = [str(y) for y2 in sorted(year_grouping.index) for y in [y2]]
+        year_grouping = df.groupby('Year')['Amount (KES)'].sum()
+        yearly_labels = [str(y) for y in sorted(year_grouping.index)]
         yearly_data = [float(year_grouping[int(y)]) for y in yearly_labels]
         yearly_mean = float(year_grouping.mean()) if len(yearly_labels) > 0 else 0.0
-
-        # Strip out raw string files before sending JSON payloads over networks to save bandwidth
-        clean_history_payload = []
-        for log_entry in user_history_log:
-            entry_copy = log_entry.copy()
-            entry_copy.pop('raw_csv_content', None)
-            clean_history_payload.append(entry_copy)
 
         return jsonify({
             "status": "success", "total_earnings": total_earnings, "transaction_count": transaction_count,
             "avg_daily": round(avg_daily_income, 2), "peak_day": peak_day, "next_month_forecast": round(prediction, 2),
             "years_summary": years_summary, "anchor_date": base_anchor.strftime('%d %b %Y at %H:%M'),
-            "history_log": clean_history_payload, "active_id": session.get('active_statement_id'), "available_dates": available_dates_str,
+            "history_log": user_history_log, "active_id": session.get('active_statement_id'), "available_dates": available_dates,
             "daily_hourly_data": daily_hourly_data,
             "charts": {
                 "daily": { "labels": daily_hourly_data["labels"], "data": daily_hourly_data["data"], "mean": round(sum(daily_hourly_data["data"]) / 24 if daily_hourly_data["data"] else 0, 2), "selected_date": daily_hourly_data["selected_date"] },
@@ -288,7 +269,6 @@ def rename_statement(history_id):
     matched_item['filename'] = new_name
     save_user_history_to_firebase(user_id, user_history_log)
 
-    for item in user_history_log: item.pop('raw_csv_content', None)
     return jsonify({
         "status": "success", "message": "Statement renamed successfully.",
         "history_log": user_history_log, "active_id": session.get('active_statement_id')
@@ -309,8 +289,8 @@ def delete_statement(history_id):
 
     if session.get('active_statement_id') == history_id:
         session.pop('active_statement_id', None)
+        PARSED_DF_CACHE.pop(history_id, None)
 
-    for item in user_history_log: item.pop('raw_csv_content', None)
     return jsonify({"status": "success", "message": "Statement removed cleanly.", "history_log": user_history_log})
 
 if __name__ == '__main__':
